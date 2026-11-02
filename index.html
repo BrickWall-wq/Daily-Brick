@@ -593,7 +593,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   }
   async function verifyPayment(reference) {
     for (var i = 0; i < 4; i++) {
-      var v = await sb.functions.invoke('payments', { body: { action: 'verify', reference: reference } });
+      var v = await sb.functions.invoke('smooth-action', { body: { action: 'verify', reference: reference } });
       if (!v.error && v.data && v.data.ok) return true;
       await new Promise(function (r) { setTimeout(r, 2000); });
     }
@@ -603,7 +603,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
     var wasPlaced = placedToday();
     busy = true; render();
-    var r = await sb.functions.invoke('payments', { body: { action: 'create', color: sel.c, finish: sel.f, inscription: $('inscr').value.trim() } });
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'create', color: sel.c, finish: sel.f, inscription: $('inscr').value.trim() } });
     if (r.error || !r.data || !r.data.access_code) {
       busy = false; render();
       toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.'));
