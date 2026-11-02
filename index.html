@@ -189,6 +189,9 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 .soon { font: 600 11px/1 var(--mono); padding: 4px 7px; border-radius: 4px; background: var(--night3); color: var(--muted); }
 .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
 .tabs .in { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sr { left: 0; top: 0; }
+.logo-box { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--mortar); }
+.logo-box img { height: 44px; width: auto; max-width: 50%; border-radius: 4px; background: #fff; }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
 .mod .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -291,6 +294,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <p class="note">Photos are checked before they appear on the wall for everyone.</p>
       <div class="total"><span id="totalLabel">Today's total</span><b id="placeTotal">Free</b></div>
       <button class="btn" id="placeBtn" type="button">Place today's brick</button>
+      <button class="btn ghost" id="placeAll" type="button" hidden>Place all remaining bricks</button>
       <p class="note" id="resetNote" style="text-align:center"></p>
     </div>
   </section>
@@ -305,8 +309,25 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
           <ul><li>One brick every day</li><li>8 colours</li><li>Streaks and your spot on the wall</li></ul></div>
         <div class="plan hl"><div class="row"><h3>Brick extras</h3><span class="amt">R19 each</span></div>
           <ul><li>Gold leaf, glazed or carved finish</li><li>Inscribe initials or a word</li><li>Upgrade today's brick even after placing it</li><li>Pay only on the days you want it (about $1)</li><li>Put a photo or picture on your brick</li></ul></div>
-        <div class="plan"><div class="row"><h3>Business</h3><span class="soon">Coming soon</span></div>
-          <ul><li>Up to 10 bricks a day</li><li>Your logo across the day's bricks</li><li>Shareable "we built this" link</li></ul></div>
+        <div class="plan" id="bizPlan"><div class="row"><h3>Business</h3><span class="amt">R89 / 30 days</span></div>
+          <ul><li>Up to 10 bricks a day, every day</li><li>Your logo and name across your bricks on the wall</li><li>No contract. Each payment adds 30 days</li></ul>
+          <div class="form" id="bizBuy">
+            <label class="label" for="bizNameIn">Business name</label>
+            <input type="text" id="bizNameIn" maxlength="24" placeholder="Your business name" autocomplete="organization">
+            <button class="btn" type="button" id="bizBuyBtn">Get Business for R89</button>
+          </div>
+          <div class="form" id="bizManage" hidden>
+            <p class="ok" id="bizActive"></p>
+            <label class="label" for="bizNameEdit">Business name</label>
+            <input type="text" id="bizNameEdit" maxlength="24" autocomplete="organization">
+            <span class="label">Logo</span>
+            <div class="logo-box"><img id="bizLogoImg" alt="Your logo" hidden><span class="note" id="bizLogoStatus">No logo yet.</span></div>
+            <label class="opt" for="bizLogo"><span id="bizLogoText">Choose a logo picture</span><span class="price">Included</span></label>
+            <input type="file" id="bizLogo" accept="image/*" class="sr">
+            <button class="btn" type="button" id="bizSave">Save name and logo</button>
+            <button class="btn ghost" type="button" id="bizRenew">Add 30 more days for R89</button>
+          </div>
+        </div>
         <div class="plan"><div class="row"><h3>Supporter pass</h3><span class="soon">Coming soon</span></div>
           <ul><li>Every premium finish included</li><li>A streak freeze for missed days</li><li>A supporter badge on your bricks</li></ul></div>
       </div>
@@ -361,7 +382,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <button class="btn ghost" type="button" id="logout">Log out</button>
     </div>
     <div class="panel" id="adminPanel" hidden>
-      <div class="row"><h2>Photos to approve</h2><button class="btn ghost" type="button" id="adminRefresh" style="width:auto;min-height:0">Refresh</button></div>
+      <div class="row"><h2>Photos and logos to approve</h2><button class="btn ghost" type="button" id="adminRefresh" style="width:auto;min-height:0">Refresh</button></div>
       <div id="adminList" class="opts"></div>
     </div>
   </section>
@@ -416,6 +437,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     if (l.indexOf('password') > -1 && l.indexOf('characters') > -1) return 'Your password needs at least 6 characters.';
     if (l.indexOf('invalid') > -1 && l.indexOf('email') > -1) return 'That email address doesn\'t look right. Check it and try again.';
     if (l.indexOf('fetch') > -1 || l.indexOf('network') > -1) return 'No connection. Check your internet and try again.';
+    if (l.indexOf('all 10 business') > -1) return 'You\'ve placed all 10 business bricks today. Come back tomorrow!';
     if (l.indexOf('already placed') > -1) return 'You\'ve already placed your brick today. Come back tomorrow!';
     return m || 'Something went wrong. Please try again.';
   }
@@ -424,11 +446,15 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     var d = profile.last_brick_date;
     return (d === todayUTC() || d === yesterdayUTC()) ? profile.current_streak : 0;
   }
-  function placedToday() { return !!(profile && profile.last_brick_date === todayUTC()); }
+  var todayCount = 0;
+  function bizActive() { return !!(profile && profile.business_until && new Date(profile.business_until) > new Date()); }
+  function dailyLimit() { return bizActive() ? 10 : 1; }
+  function placedToday() { return !!profile && todayCount >= dailyLimit(); }
+  function publicUrl(path) { return sb.storage.from('brick-photos').getPublicUrl(path).data.publicUrl; }
 
   /* ---- data ---- */
   async function loadWall() {
-    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,profiles(display_name)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles(display_name,business_name,logo_url,logo_status)').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
     var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
     if (!s.error && s.data) wallTotal = Number(s.data.total_bricks) || 0;
@@ -438,7 +464,9 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     if (!user) { profile = null; $('adminPanel').hidden = true; render(); return; }
     var r = await sb.from('profiles').select('*').eq('id', user.id).single();
     profile = r.error ? null : r.data;
-    render();
+    var c = await sb.from('bricks').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('placed_on', todayUTC());
+    todayCount = c.error ? (profile && profile.last_brick_date === todayUTC() ? 1 : 0) : (c.count || 0);
+    render(); renderBiz();
     if (profile && profile.is_admin && !$('tab-me').hidden) loadPending();
   }
 
@@ -470,6 +498,42 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     if (ins) { ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.font = '600 ' + Math.round(h * .38) + 'px Figtree, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ins, x + w / 2, y + h / 2 - 1, w - 6); }
     if (mine) { ctx.strokeStyle = CORAL; ctx.lineWidth = 5; ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5); }
   }
+  function drawBanners(ctx, pos) {
+    var i = 0;
+    while (i < bricks.length) {
+      var b = bricks[i];
+      if (!b.biz) { i++; continue; }
+      var j = i;
+      while (j + 1 < bricks.length && bricks[j + 1].biz && bricks[j + 1].user_id === b.user_id && bricks[j + 1].placed_on === b.placed_on) j++;
+      var k = i;
+      while (k <= j) {
+        var end = Math.min(j, (Math.floor(k / COLS) + 1) * COLS - 1), p1 = pos(k), p2 = pos(end);
+        bannerAt(ctx, p1.x + 2, p1.y + 2, p2.x + BW - 2 - (p1.x + 2), BH - 4, b, end - k + 1);
+        k = end + 1;
+      }
+      i = j + 1;
+    }
+  }
+  function bannerAt(ctx, x, y, w, h, b, n) {
+    var prof = b.profiles || {}, name = prof.business_name || prof.display_name || 'Business';
+    var mine = user && b.user_id === user.id;
+    if (n < 2) { ctx.fillStyle = 'rgba(95,214,196,.9)'; ctx.fillRect(x, y, w, 4); return; }
+    ctx.save();
+    ctx.fillStyle = 'rgba(10,26,36,.86)'; ctx.fillRect(x + 3, y + 4, w - 6, h - 8);
+    ctx.strokeStyle = '#5fd6c4'; ctx.lineWidth = 2; ctx.strokeRect(x + 3, y + 4, w - 6, h - 8);
+    var tx = x + 12;
+    var showLogo = prof.logo_url && (prof.logo_status === 'approved' || (mine && prof.logo_status === 'pending'));
+    if (showLogo) {
+      var im = imgFor(publicUrl(prof.logo_url));
+      if (im.complete && im.naturalWidth) {
+        var lh = h - 16, lw = Math.min(im.naturalWidth * lh / im.naturalHeight, w * .4);
+        ctx.drawImage(im, tx, y + 8, lw, lh); tx += lw + 10;
+      }
+    }
+    ctx.fillStyle = '#f1f7f4'; ctx.font = '700 ' + Math.round(h * .42) + 'px Figtree, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(name, tx, y + h / 2, Math.max(10, x + w - 12 - tx));
+    ctx.restore();
+  }
   var hit = [];
   function drawWall() {
     var cv = $('wall'), n = bricks.length;
@@ -482,6 +546,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine, b.finish, b.message, photoSrc(b, mine));
       hit.push({ x: p.x + 2, y: p.y + 2, w: BW - 4, h: BH - 4, b: b, mine: mine });
     });
+    drawBanners(ctx, pos);
     if (n < SHOW) { var f = pos(n); ctx.setLineDash([6, 5]); ctx.strokeStyle = CORAL; ctx.lineWidth = 2; ctx.strokeRect(f.x + 4, f.y + 4, BW - 8, BH - 8); ctx.setLineDash([]); }
     if (!n) { ctx.fillStyle = '#8fb4b8'; ctx.font = '600 30px Figtree, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('The wall starts here. Be the first builder!', cv.width / 2, H / 2); }
   }
@@ -491,7 +556,9 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     var tip = $('tip'); if (!h) { tip.hidden = true; return; }
     tip.textContent = '';
     var s = document.createElement('strong');
-    s.textContent = h.mine ? 'Your brick' : ((h.b.profiles && h.b.profiles.display_name) || 'A builder');
+    var pr = h.b.profiles || {};
+    s.textContent = h.mine ? 'Your brick' : ((h.b.biz && pr.business_name) || pr.display_name || 'A builder');
+    if (h.b.biz && !h.mine) s.textContent += ' (business)';
     tip.appendChild(s);
     var fn = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[h.b.finish];
     var ph = h.b.photo_status === 'approved' ? ' · Photo' : (h.mine && h.b.photo_status === 'pending') ? ' · Photo waiting for approval' : (h.mine && h.b.photo_status === 'rejected') ? ' · Photo not approved' : '';
@@ -543,11 +610,17 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     $('streakChip').hidden = !user; $('streakN').textContent = st;
     $('placeLogin').hidden = !!user; $('placePanel').hidden = !user;
     $('authPanel').hidden = !!user; $('profilePanel').hidden = !user;
-    var done = placedToday(), btn = $('placeBtn'), cost = total();
+    var done = placedToday(), btn = $('placeBtn'), cost = total(), biz = bizActive(), left = dailyLimit() - todayCount;
+    var upgrade = biz ? todayCount > 0 : done;
     btn.disabled = busy || (done && !cost);
-    btn.textContent = busy ? 'Please wait\u2026' : cost ? (done ? 'Pay R' + cost + ' to upgrade today\'s brick' : 'Pay R' + cost + ' and place brick') : done ? 'Come back tomorrow' : 'Place today\'s brick';
-    $('placeTitle').textContent = done ? 'Today\'s brick is placed' : 'Place today\'s brick';
-    $('totalLabel').textContent = done ? 'Upgrade today\'s brick' : 'Today\'s total';
+    if (busy) btn.textContent = 'Please wait…';
+    else if (cost) btn.textContent = upgrade ? 'Pay R' + cost + (biz ? ' to upgrade your latest brick' : ' to upgrade today\'s brick') : 'Pay R' + cost + ' and place brick';
+    else if (done) btn.textContent = 'Come back tomorrow';
+    else btn.textContent = biz ? 'Place brick ' + (todayCount + 1) + ' of 10' : 'Place today\'s brick';
+    $('placeAll').hidden = !biz || busy || !!cost || left < 2;
+    $('placeAll').textContent = 'Place all ' + left + ' remaining bricks';
+    $('placeTitle').textContent = biz ? (done ? 'All 10 business bricks placed' : 'Place your business bricks') : done ? 'Today\'s brick is placed' : 'Place today\'s brick';
+    $('totalLabel').textContent = upgrade ? (biz ? 'Upgrade your latest brick' : 'Upgrade today\'s brick') : 'Today\'s total';
     $('heroPlace').hidden = done;
     if (profile) {
       $('hello').textContent = 'Hi ' + (profile.display_name || 'builder');
@@ -684,6 +757,84 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       onError: function (e) { busy = false; render(); toast((e && e.message) || 'The payment could not be completed.'); }
     });
   }
+  async function payBusiness(name) {
+    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'business', business_name: name } });
+    if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
+    var ref = r.data.reference, wasActive = bizActive();
+    new PaystackPop().resumeTransaction(r.data.access_code, {
+      onSuccess: async function () {
+        toast('Payment received. Switching on your business plan…');
+        var ok = await verifyPayment(ref);
+        await loadProfile(); await loadWall();
+        if (ok) { confetti(); toast(wasActive ? '30 days added. Thank you!' : 'Business plan active! Add your logo, then place up to 10 bricks a day.'); }
+        else toast('Payment received. Your plan will switch on in a minute or two.');
+      },
+      onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
+      onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
+    });
+  }
+  $('bizBuyBtn').addEventListener('click', function () {
+    if (!user) { show('me'); toast('Create an account or log in first.'); return; }
+    var name = $('bizNameIn').value.trim();
+    if (!name) { toast('Enter your business name first.'); $('bizNameIn').focus(); return; }
+    payBusiness(name);
+  });
+  $('bizRenew').addEventListener('click', function () {
+    payBusiness((profile && profile.business_name) || $('bizNameEdit').value.trim() || 'My business');
+  });
+
+  /* business name and logo */
+  var logoBlob = null;
+  function renderBiz() {
+    var active = bizActive();
+    $('bizBuy').hidden = active; $('bizManage').hidden = !active;
+    if (!active) return;
+    var until = new Date(profile.business_until);
+    $('bizActive').textContent = 'Active until ' + until.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
+    if (document.activeElement !== $('bizNameEdit')) $('bizNameEdit').value = profile.business_name || '';
+    if (!logoBlob) {
+      var st = { pending: 'Waiting for approval. Only you can see it on the wall for now.', approved: 'Approved. Showing on the wall.', rejected: 'Not approved. Please choose a different logo.' }[profile.logo_status];
+      $('bizLogoStatus').textContent = profile.logo_url ? (st || '') : 'No logo yet.';
+      if (profile.logo_url) { $('bizLogoImg').src = publicUrl(profile.logo_url); $('bizLogoImg').hidden = false; } else $('bizLogoImg').hidden = true;
+    }
+  }
+  $('bizLogo').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0]; if (!file) return;
+    if (!/^image\//.test(file.type)) { toast('Choose an image file, like a JPG or PNG.'); return; }
+    var url = URL.createObjectURL(file), im = new Image();
+    im.onload = function () {
+      var W = 300, H = 150, c = document.createElement('canvas'); c.width = W; c.height = H; var x = c.getContext('2d');
+      x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);
+      var s = Math.min(W / im.naturalWidth, H / im.naturalHeight);
+      x.drawImage(im, (W - im.naturalWidth * s) / 2, (H - im.naturalHeight * s) / 2, im.naturalWidth * s, im.naturalHeight * s);
+      URL.revokeObjectURL(url);
+      $('bizLogoImg').src = c.toDataURL('image/jpeg', .9); $('bizLogoImg').hidden = false;
+      $('bizLogoStatus').textContent = 'New logo chosen. Tap Save to upload it.';
+      $('bizLogoText').textContent = 'Logo chosen · tap to change';
+      c.toBlob(function (b) { logoBlob = b; }, 'image/jpeg', .9);
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); toast('That image could not be opened. Try another one.'); };
+    im.src = url; e.target.value = '';
+  });
+  $('bizSave').addEventListener('click', async function () {
+    var name = $('bizNameEdit').value.trim();
+    if (!name) { toast('Enter your business name.'); return; }
+    var btn = $('bizSave'); btn.disabled = true; btn.textContent = 'Saving…';
+    var path = null;
+    if (logoBlob) {
+      path = user.id + '/logo-' + crypto.randomUUID() + '.jpg';
+      var up = await sb.storage.from('brick-photos').upload(path, logoBlob, { contentType: 'image/jpeg' });
+      if (up.error) { btn.disabled = false; btn.textContent = 'Save name and logo'; toast('Your logo could not be uploaded. Try again.'); return; }
+    }
+    var r = await sb.rpc('set_business_profile', { p_name: name, p_logo_path: path });
+    btn.disabled = false; btn.textContent = 'Save name and logo';
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    logoBlob = null; $('bizLogoText').textContent = 'Choose a logo picture';
+    toast(path ? 'Saved. Your logo will show for everyone once it is approved.' : 'Business name saved.');
+    await loadProfile(); await loadWall();
+  });
+
   $('placeBtn').addEventListener('click', async function () {
     if (!user || busy) return;
     if (total()) { payForExtras(); return; }
@@ -692,7 +843,19 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     var r = await sb.rpc('place_brick', { p_color: sel.c, p_message: null });
     busy = false;
     if (r.error) { render(); toast(friendly(r.error.message)); return; }
-    celebrate();
+    celebrate(bizActive() && todayCount + 1 < 10 ? 'Brick ' + (todayCount + 1) + ' of 10 placed.' : null);
+  });
+  $('placeAll').addEventListener('click', async function () {
+    if (!user || busy || !bizActive()) return;
+    var left = dailyLimit() - todayCount, placed = 0;
+    busy = true; render();
+    for (var i = 0; i < left; i++) {
+      var r = await sb.rpc('place_brick', { p_color: sel.c, p_message: null });
+      if (r.error) { if (!placed) toast(friendly(r.error.message)); break; }
+      placed++;
+    }
+    busy = false;
+    if (placed) celebrate(placed + ' business bricks placed. See you tomorrow!'); else render();
   });
 
   /* ---- auth ---- */
@@ -766,9 +929,20 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     if (!profile || !profile.is_admin) { $('adminPanel').hidden = true; return; }
     $('adminPanel').hidden = false;
     var r = await sb.from('bricks').select('id,photo_url,placed_on,profiles(display_name)').eq('photo_status', 'pending').order('id', { ascending: true }).limit(30);
+    var lg = await sb.from('profiles').select('id,business_name,logo_url').eq('logo_status', 'pending').limit(30);
     var list = $('adminList'); list.innerHTML = '';
     if (r.error) { list.textContent = friendly(r.error.message); return; }
-    if (!r.data.length) { var p = document.createElement('p'); p.className = 'muted'; p.textContent = 'No photos waiting. Nice work.'; list.appendChild(p); return; }
+    (lg.data || []).forEach(function (p) {
+      var d = document.createElement('div'); d.className = 'mod';
+      d.innerHTML = '<img alt="Business logo waiting for approval" style="object-fit:contain;background:#fff"><span class="note"></span><div class="acts"><button class="btn" type="button">Approve logo</button><button class="btn no" type="button">Reject</button></div>';
+      d.querySelector('img').src = publicUrl(p.logo_url);
+      d.querySelector('.note').textContent = 'Business logo · ' + (p.business_name || 'Business');
+      var bt = d.querySelectorAll('button');
+      bt[0].addEventListener('click', function () { moderateLogo(p.id, true); });
+      bt[1].addEventListener('click', function () { moderateLogo(p.id, false); });
+      list.appendChild(d);
+    });
+    if (!r.data.length && !(lg.data || []).length) { var p = document.createElement('p'); p.className = 'muted'; p.textContent = 'No photos waiting. Nice work.'; list.appendChild(p); return; }
     r.data.forEach(function (b) {
       var d = document.createElement('div'); d.className = 'mod';
       d.innerHTML = '<img alt="Photo waiting for approval"><span class="note"></span><div class="acts"><button class="btn" type="button">Approve</button><button class="btn no" type="button">Reject</button></div>';
@@ -784,6 +958,11 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     var r = await sb.rpc('moderate_photo', { p_brick: id, p_approve: ok });
     if (r.error) { toast(friendly(r.error.message)); return; }
     toast(ok ? 'Photo approved.' : 'Photo rejected.'); loadPending(); loadWall();
+  }
+  async function moderateLogo(id, ok) {
+    var r = await sb.rpc('moderate_logo', { p_user: id, p_approve: ok });
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    toast(ok ? 'Logo approved.' : 'Logo rejected.'); loadPending(); loadWall();
   }
   $('adminRefresh').addEventListener('click', loadPending);
 
