@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Daily Brick</title>
+<meta name="description" content="Place one free brick a day and help build a wall longer than the Great Wall of China.">
+<meta name="theme-color" content="#0a1a24">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Brick">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect x='2' y='4' width='12' height='7' rx='1' fill='%23ff9a62'/%3E%3Crect x='16' y='4' width='12' height='7' rx='1' fill='%23e0713a'/%3E%3Crect x='9' y='13' width='12' height='7' rx='1' fill='%23ff9a62'/%3E%3Crect x='2' y='22' width='12' height='7' rx='1' fill='%23e0713a'/%3E%3Crect x='16' y='22' width='12' height='7' rx='1' fill='%23ff9a62'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+[hidden] { display: none !important; }
+body { padding-bottom: env(safe-area-inset-bottom, 0px); }
+:root {
+  --night: #0a1a24;
+  --night2: #102a34;
+  --night3: #18404d;
+  --line: #25525f;
+  --ink: #f1f7f4;
+  --muted: #8fb4b8;
+  --coral: #ff9a62;
+  --coral-deep: #e0713a;
+  --coral-ink: #3a1606;
+  --mint: #5fd6c4;
+  --good: #6fe0b0;
+  --mortar: #071820;
+  --display: 'Cinzel', Georgia, 'Times New Roman', serif;
+  --body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--night); color: var(--ink); font: 15px/1.5 var(--body); -webkit-text-size-adjust: 100%; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--night); }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+h1, h2, h3, p { margin: 0; }
+h2 { font: 700 20px/1.2 var(--display); letter-spacing: .04em; text-wrap: balance; }
+h3 { font: 600 15px/1.3 var(--body); }
+.in { max-width: 720px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.note { font-size: 12.5px; color: var(--muted); }
+.label { font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* header */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(10, 26, 36, .94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.top .in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font: 800 18px/1 var(--display); letter-spacing: .06em; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--night2); font: 600 13px/1 var(--mono); }
+.chip svg { width: 14px; height: 14px; }
+.chip b { color: var(--coral); }
+
+main { padding-block: 18px 110px; }
+.view { display: grid; gap: 16px; }
+
+/* hero */
+.hero { position: relative; overflow: hidden; border-radius: 16px; border: 1px solid var(--line); min-height: 320px; background: linear-gradient(#0a1a24 0%, #14394a 38%, #2f6f78 60%, #e9987a 86%, #ffc79a 100%); }
+.hero svg { position: absolute; left: 0; bottom: 0; width: 100%; height: 62%; display: block; }
+.hero .txt { position: relative; z-index: 1; padding: 22px 20px; display: grid; gap: 12px; }
+.hero h1 { font: 800 clamp(28px, 7.6vw, 42px)/1.08 var(--display); letter-spacing: .02em; text-wrap: balance; }
+.hero h1 span { color: var(--coral); display: block; }
+.hero p { max-width: 38ch; color: #e4efec; text-shadow: 0 1px 8px rgba(0, 0, 0, .6); }
+.hero .label { color: #ffd7b0; }
+
+/* cards, bars */
+.card { background: var(--night2); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.big { font: 800 30px/1 var(--display); font-variant-numeric: tabular-nums; }
+.big small { font: 500 13px/1 var(--body); color: var(--muted); letter-spacing: 0; }
+.bar { position: relative; height: 14px; border-radius: 4px; background: var(--mortar); border: 1px solid var(--line); overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; min-width: 6px; background: linear-gradient(90deg, #2fa89a, var(--mint)); box-shadow: 0 0 12px rgba(95, 214, 196, .6); transition: width .6s ease; }
+.bar::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 24px, rgba(0, 0, 0, .35) 24px 26px); }
+.meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.meta strong { color: var(--ink); font-weight: 600; }
+
+/* wall canvas */
+.wallwrap { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--mortar); }
+.wallwrap.thud { animation: thud .5s ease-out; }
+@keyframes thud { 0% { transform: translateY(0); } 20% { transform: translateY(5px); } 45% { transform: translateY(-3px); } 100% { transform: translateY(0); } }
+canvas { display: block; width: 100%; height: auto; touch-action: manipulation; }
+.tip { position: absolute; left: 10px; right: 10px; bottom: 10px; background: var(--ink); color: var(--night); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 9px; border-radius: 1px; display: inline-block; }
+
+/* milestones */
+.ms { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.ms:last-child { border-bottom: 0; }
+.ms .dot { width: 14px; height: 9px; border-radius: 1px; background: var(--night3); }
+.ms.hit .dot { background: var(--mint); }
+.ms .km { font: 12px/1 var(--mono); color: var(--muted); }
+.ms.hit .km { color: var(--good); }
+
+/* panels and controls */
+.panel { background: var(--night2); border: 1px solid var(--line); border-radius: 14px; padding: 18px 16px; display: grid; gap: 14px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch { width: 46px; height: 30px; border-radius: 4px; border: 2px solid transparent; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .25); padding: 0; }
+.swatch[aria-pressed="true"] { border-color: var(--ink); outline: 2px solid var(--coral); outline-offset: 1px; }
+.opts { display: grid; gap: 8px; }
+.opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: transparent; text-align: left; }
+.opt[aria-pressed="true"], .opt.has { border-color: var(--coral); background: rgba(255, 154, 98, .1); }
+.opt .price { font: 13px/1 var(--mono); color: var(--muted); white-space: nowrap; }
+.opt[aria-pressed="true"] .price, .opt.has .price { color: var(--coral); }
+input[type=text] { width: 100%; min-height: 46px; padding: 10px 12px; background: var(--mortar); border: 1px solid var(--line); border-radius: 10px; }
+input[type=range] { width: 100%; accent-color: var(--coral); }
+input[type=file] { width: 100%; font-size: 13px; color: var(--muted); }
+input[type=file]::file-selector-button { margin-right: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--night3); color: var(--ink); font-weight: 600; cursor: pointer; }
+.preview { display: flex; align-items: center; gap: 14px; }
+.preview canvas { width: 130px; height: auto; flex: none; }
+.bizprev { overflow-x: auto; background: var(--mortar); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+.bizprev canvas { width: 100%; min-width: 300px; }
+.total { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--line); padding-top: 12px; }
+.total b { font: 600 18px/1 var(--mono); }
+.btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 12px 20px; border: 0; border-radius: 10px; background: linear-gradient(180deg, #ffb482, var(--coral)); color: var(--coral-ink); font: 700 16px/1 var(--body); box-shadow: 0 2px 0 var(--coral-deep), 0 8px 20px rgba(255, 154, 98, .22); transition: transform .12s; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { background: var(--night3); color: var(--muted); box-shadow: none; cursor: default; }
+.btn.ghost { background: none; box-shadow: none; color: var(--muted); font-weight: 500; font-size: 13px; min-height: 36px; text-decoration: underline; text-underline-offset: 3px; }
+.sr { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip: rect(0 0 0 0); }
+.photo-row:focus-within .opt { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+/* plans */
+.plans { display: grid; gap: 10px; }
+.plan { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 8px; }
+.plan.hl { border-color: var(--coral); background: rgba(255, 154, 98, .06); }
+.plan .amt { font: 600 15px/1 var(--mono); }
+.plan ul, .ideas { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+.plan li, .ideas li { display: flex; gap: 10px; }
+.plan li::before, .ideas li::before { content: ""; flex: none; width: 8px; height: 8px; margin-top: 7px; background: var(--coral); border-radius: 1px; }
+.ideas li::before { background: var(--mint); border-radius: 50%; }
+
+/* goals */
+.goals { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.goal { align-content: start; gap: 8px; }
+.gnum { font: 800 34px/1 var(--display); color: var(--coral); letter-spacing: .02em; }
+.msbar { display: grid; gap: 16px; }
+.msbar > div { display: grid; gap: 8px; }
+.msbar .bar { height: 10px; }
+.planlist { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.planlist li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.planlist li:last-child { border-bottom: 0; padding-bottom: 0; }
+.tag { font: 600 11px/1 var(--mono); padding: 4px 7px; border-radius: 4px; background: var(--night3); color: var(--muted); white-space: nowrap; }
+.tag.done { background: rgba(111, 224, 176, .16); color: var(--good); }
+.tag.next { background: rgba(255, 154, 98, .18); color: var(--coral); }
+.mile { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: center; }
+.mile .badge { width: 52px; height: 52px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--mortar); font: 800 16px/1 var(--display); color: var(--muted); }
+.mile.on .badge { border-color: var(--coral); color: var(--coral); box-shadow: 0 0 14px rgba(255, 154, 98, .4); }
+.miles { display: grid; gap: 12px; }
+
+/* tabs, toast, confetti */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: rgba(10, 26, 36, .96); backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tabs .in { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding-block: 6px; }
+.tab { display: grid; justify-items: center; gap: 4px; min-height: 52px; padding: 6px 2px; background: none; border: 0; border-radius: 10px; color: var(--muted); font: 600 10px/1 var(--mono); letter-spacing: .03em; text-transform: uppercase; }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-selected="true"] { color: var(--coral); background: var(--night2); }
+.toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); z-index: 40; max-width: min(92vw, 440px); padding: 12px 16px; background: var(--ink); color: var(--night); border-radius: 10px; font-weight: 600; font-size: 14px; opacity: 0; pointer-events: none; transition: .25s; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.proto { text-align: center; font: 500 11.5px/1.4 var(--mono); color: var(--muted); letter-spacing: .04em; }
+.confetti { position: fixed; top: 0; width: 9px; height: 14px; z-index: 50; pointer-events: none; animation: fall 2.2s ease-in forwards; }
+@keyframes fall { to { transform: translate(var(--dx), 105vh) rotate(var(--rot)); opacity: .9; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+.acct { background: none; border: 1px solid var(--line); border-radius: 999px; width: 34px; height: 34px; display: grid; place-items: center; color: var(--muted); padding: 0; }
+.acct svg { width: 18px; height: 18px; }
+.hd-right { display: flex; align-items: center; gap: 8px; }
+.form { display: grid; gap: 10px; }
+input[type=email], input[type=password] { width: 100%; min-height: 46px; padding: 10px 12px; background: var(--mortar); border: 1px solid var(--line); border-radius: 10px; }
+.switch { text-align: center; font-size: 14px; color: var(--muted); }
+.switch button { background: none; border: 0; color: var(--coral); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; padding: 4px; }
+.err { color: #ffb3a0; font-size: 13.5px; }
+.ok { color: var(--good); font-size: 13.5px; }
+.statgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { background: var(--mortar); border: 1px solid var(--line); border-radius: 10px; padding: 12px 8px; text-align: center; display: grid; gap: 6px; }
+.stat b { font: 800 24px/1 var(--display); color: var(--coral); }
+.soon { font: 600 11px/1 var(--mono); padding: 4px 7px; border-radius: 4px; background: var(--night3); color: var(--muted); }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
+.tabs .in { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="in">
+    <div class="logo">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="4" width="12" height="7" rx="1" fill="#ff9a62"/><rect x="16" y="4" width="12" height="7" rx="1" fill="#e0713a"/><rect x="9" y="13" width="12" height="7" rx="1" fill="#ff9a62"/><rect x="2" y="22" width="12" height="7" rx="1" fill="#e0713a"/><rect x="16" y="22" width="12" height="7" rx="1" fill="#ff9a62"/></svg>
+      <span>Daily Brick</span>
+    </div>
+    <div class="hd-right">
+      <span class="chip" title="Day streak" id="streakChip" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff9a62" d="M13 2c.6 4-3.6 5.4-3.6 9.5A3.4 3.4 0 0 0 12.8 15c1.5 0 2.7-1.1 2.7-2.7 0-1.1-.5-1.8-.9-2.6 3 1.5 5 4.3 5 7.8a7.6 7.6 0 0 1-15.2 0c0-5 4.2-7.8 8.6-9.5z"/></svg><b id="streakN">0</b> day streak</span>
+    </div>
+  </div>
+</header>
+
+<main class="in">
+
+  <!-- WALL -->
+  <section id="tab-wall" class="view" aria-label="Wall">
+    <div class="hero">
+      <svg viewBox="0 0 800 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <defs>
+          <radialGradient id="sun" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffe2bd" stop-opacity=".9"/><stop offset="1" stop-color="#ffe2bd" stop-opacity="0"/></radialGradient>
+          <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd2ab" stop-opacity="0"/><stop offset="1" stop-color="#ffd2ab" stop-opacity=".28"/></linearGradient>
+        </defs>
+        <circle cx="610" cy="130" r="120" fill="url(#sun)"/>
+        <circle cx="610" cy="140" r="26" fill="#ffe2bd"/>
+        <path d="M0 190 L60 150 L120 175 L200 118 L280 170 L350 138 L430 185 L520 128 L600 172 L690 138 L760 165 L800 148 V260 H0Z" fill="#245462"/>
+        <path d="M0 215 L90 172 L170 200 L260 158 L340 195 L430 148 L520 190 L610 163 L700 200 L800 168 V260 H0Z" fill="#153e4c"/>
+        <rect y="160" width="800" height="100" fill="url(#mist)"/>
+        <polyline points="0,232 80,208 160,224 250,192 340,216 430,182 520,212 610,190 700,218 800,194" fill="none" stroke="#7a3b22" stroke-width="5"/>
+        <polyline points="0,226 80,202 160,218 250,186 340,210 430,176 520,206 610,184 700,212 800,188" fill="none" stroke="#d27a45" stroke-width="6" stroke-dasharray="7 3"/>
+        <g fill="#d27a45"><rect x="244" y="168" width="14" height="22"/><rect x="424" y="158" width="14" height="22"/><rect x="604" y="166" width="14" height="22"/></g>
+        <g fill="#7a3b22"><rect x="242" y="164" width="18" height="5"/><rect x="422" y="154" width="18" height="5"/><rect x="602" y="162" width="18" height="5"/></g>
+        <path d="M0 246 L120 232 L260 244 L420 230 L600 246 L800 234 V260 H0Z" fill="#071820"/>
+      </svg>
+      <div class="txt">
+        <span class="label">Great Wall of China &middot; 23 billion bricks</span>
+        <h1>One brick a day. <span>A wall built by the world.</span></h1>
+        <p>Place your free daily brick. Extras coming soon. Watch the wall grow past the Great Wall of China.</p>
+      </div>
+    </div>
+
+    <div class="card" aria-label="Wall progress">
+      <div class="big mono" id="count">0 <small>bricks laid</small></div>
+      <div class="bar"><i id="barFill" style="width:0"></i></div>
+      <div class="meta"><span><strong id="pct">0%</strong> of 23,000,000,000</span><span><strong id="km">0 km</strong> of wall built</span></div>
+    </div>
+
+    <div class="wallwrap" id="wallwrap">
+      <canvas id="wall" width="1040" height="640" aria-label="The newest section of the wall. Tap a brick to see who placed it."></canvas>
+      <div class="tip" id="tip" hidden></div>
+    </div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--coral)"></i>Your bricks</span>
+      <span><i class="sw" style="border:1px dashed var(--coral)"></i>Next brick goes here</span>
+    </div>
+    <button class="btn" type="button" id="heroPlace">Place today's brick</button>
+
+    <div class="card" id="installCard" hidden>
+      <div class="row"><h3>Get Daily Brick on your phone</h3><button class="btn ghost" type="button" id="installClose" style="width:auto;min-height:0">Not now</button></div>
+      <p class="muted" id="installText">Add it to your home screen so your daily brick is one tap away.</p>
+      <button class="btn" type="button" id="installBtn">Install app</button>
+    </div>
+
+    <div class="card">
+      <h2>Next milestone</h2>
+      <div id="milestones"></div>
+    </div>
+  </section>
+
+  <!-- PLACE -->
+  <section id="tab-place" class="view" aria-label="Place a brick" hidden>
+    <div class="panel" id="placeLogin" hidden>
+      <h2>Join the build</h2>
+      <p class="muted">Create a free account to place your daily brick and keep your streak.</p>
+      <button class="btn" type="button" data-go="me">Sign up or log in</button>
+    </div>
+    <div class="panel" id="placePanel">
+      <h2 id="placeTitle">Place today's brick</h2>
+      <div class="preview"><canvas id="prev" width="240" height="112"></canvas><p class="muted" style="font-size:14px">Your brick goes at the end of the wall, right where today's builders are working.</p></div>
+      <span class="label">Colour (free)</span>
+      <div class="swatches" id="swatches"></div>
+      <div class="opts">
+        <div class="opt" style="opacity:.6"><span>Gold leaf, glazed and carved finishes</span><span class="soon">Soon</span></div>
+        <div class="opt" style="opacity:.6"><span>Inscription or photo on your brick</span><span class="soon">Soon</span></div>
+      </div>
+      <button class="btn" id="placeBtn" type="button">Place today's brick</button>
+      <p class="note" id="resetNote" style="text-align:center"></p>
+    </div>
+  </section>
+
+  <!-- PLANS -->
+  <section id="tab-plans" class="view" aria-label="Plans" hidden>
+    <div class="panel">
+      <h2>Plans</h2>
+      <p class="muted" style="font-size:14px">The daily brick is free forever. Extras are coming soon and will stay low-priced so anyone can join.</p>
+      <div class="plans">
+        <div class="plan hl"><div class="row"><h3>Builder</h3><span class="amt">Free</span></div>
+          <ul><li>One brick every day</li><li>8 colours</li><li>Streaks and your spot on the wall</li></ul></div>
+        <div class="plan"><div class="row"><h3>Brick extras</h3><span class="soon">Coming soon</span></div>
+          <ul><li>Gold leaf, glazed or carved finish</li><li>Inscribe initials or a word</li><li>Put a photo or picture on your brick</li><li>From $1, only on the days you want it</li></ul></div>
+        <div class="plan"><div class="row"><h3>Business</h3><span class="soon">Coming soon</span></div>
+          <ul><li>Up to 10 bricks a day</li><li>Your logo across the day's bricks</li><li>Shareable "we built this" link</li></ul></div>
+        <div class="plan"><div class="row"><h3>Supporter pass</h3><span class="soon">Coming soon</span></div>
+          <ul><li>Every premium finish included</li><li>A streak freeze for missed days</li><li>A supporter badge on your bricks</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GOALS -->
+  <section id="tab-goals" class="view" aria-label="Goals" hidden>
+    <div style="display:grid;gap:8px"><span class="label">The mission</span><h2>A wall longer than the Great Wall</h2><p class="muted">23 billion bricks, about 21,196 km, built one brick a day by people and businesses from everywhere.</p></div>
+    <div class="goals">
+      <div class="card goal"><span class="gnum">23B</span><h3>Surpass the Great Wall</h3><p class="muted">23,000 sections of 1,000,000 bricks. Each section is about 0.9 km of wall.</p></div>
+      <div class="card goal"><span class="gnum">1 a day</span><h3>Make it a daily habit</h3><p class="muted">One free brick every day. Streaks at 7, 30 and 100 days.</p></div>
+      <div class="card goal"><span class="gnum">10</span><h3>Bring businesses in</h3><p class="muted">Up to 10 bricks a day, with the logo shown across the day's bricks.</p></div>
+    </div>
+    <div class="card"><h3>Wall milestones</h3><div class="msbar" id="msbar"></div></div>
+    <div class="card"><h3>Streak milestones</h3><div class="miles" id="miles"></div></div>
+  </section>
+
+  <!-- ME -->
+  <section id="tab-me" class="view" aria-label="Account" hidden>
+    <div class="panel" id="authPanel">
+      <h2 id="authTitle">Create your account</h2>
+      <p class="muted" id="authSub">Free. Takes 30 seconds.</p>
+      <form class="form" id="authForm" novalidate>
+        <input type="text" id="authName" placeholder="Your name (shown on your bricks)" maxlength="30" autocomplete="nickname">
+        <input type="email" id="authEmail" placeholder="Email" autocomplete="email" required>
+        <input type="password" id="authPass" placeholder="Password (at least 6 characters)" autocomplete="new-password" required>
+        <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="showPass"> Show password</label>
+        <p class="err" id="authErr" hidden></p>
+        <p class="ok" id="authOk" hidden></p>
+        <button class="btn" type="submit" id="authBtn">Sign up</button>
+      </form>
+      <p class="switch"><span id="switchText">Already have an account?</span> <button type="button" id="switchBtn">Log in</button></p>
+      <p class="switch" id="forgotRow" hidden><button type="button" id="forgotBtn">Forgot your password?</button></p>
+    </div>
+    <div class="panel" id="resetPanel" hidden>
+      <h2>Choose a new password</h2>
+      <input type="password" id="newPass" placeholder="New password (at least 6 characters)" autocomplete="new-password">
+      <p class="err" id="resetErr" hidden></p>
+      <button class="btn" type="button" id="resetBtn">Save new password</button>
+    </div>
+    <div class="panel" id="profilePanel" hidden>
+      <h2 id="hello">Hi</h2>
+      <div class="statgrid">
+        <div class="stat"><b id="sStreak">0</b><span class="note">Day streak</span></div>
+        <div class="stat"><b id="sBest">0</b><span class="note">Best streak</span></div>
+        <div class="stat"><b id="sTotal">0</b><span class="note">Bricks laid</span></div>
+      </div>
+      <label class="label" for="nameEdit">Name on your bricks</label>
+      <input type="text" id="nameEdit" maxlength="30" autocomplete="nickname">
+      <button class="btn" type="button" id="saveName">Save name</button>
+      <button class="btn ghost" type="button" id="logout">Log out</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="in">
+    <button class="tab" data-tab="wall" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="2" y="4" width="9" height="4" rx="1"/><rect x="13" y="4" width="9" height="4" rx="1"/><rect x="6" y="10" width="9" height="4" rx="1"/><rect x="2" y="16" width="9" height="4" rx="1"/><rect x="13" y="16" width="9" height="4" rx="1"/></g></svg>Wall</button>
+    <button class="tab" data-tab="place" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v6M9 12h6" stroke="currentColor" stroke-width="2"/></svg>Place</button>
+    <button class="tab" data-tab="plans" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M16.5 7.5C16 6 14.5 5 12 5 9.5 5 8 6.2 8 8s1.5 2.5 4 3 4 1.3 4 3.2c0 1.8-1.7 2.8-4 2.8-2.3 0-4-1-4.5-2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Plans</button>
+    <button class="tab" data-tab="goals" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Goals</button>
+    <button class="tab" data-tab="me" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Me</button>
+  </div>
+</nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  /* ---- Supabase connection (these two values are public and safe in the app) ---- */
+  var SUPABASE_URL = 'https://ylrkjnfoiezdvpsyegni.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_6pGTx_YoFZtaF64OleMP9g_RtZsiOIm';
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  var TARGET = 23e9, WALL_KM = 21196;
+  var COLORS = [
+    { n: 'Clay', c: '#d9714e' }, { n: 'Sandstone', c: '#d4a76a' }, { n: 'Lagoon', c: '#5fa3b0' }, { n: 'Dusk', c: '#4f6e7c' },
+    { n: 'Moss', c: '#6a8f5a' }, { n: 'Ochre', c: '#d9973a' }, { n: 'Rose', c: '#cf8585' }, { n: 'Slate', c: '#5b6e7a' }
+  ];
+  var CORAL = '#ff9a62';
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var COLS = 13, BW = 80, BH = 40, ROWS = 16, SHOW = COLS * ROWS;
+
+  var user = null, profile = null, bricks = [], wallTotal = 0, busy = false;
+  var sel = { c: COLORS[5].c };
+
+  function $(id) { return document.getElementById(id); }
+  function todayUTC() { return new Date().toISOString().slice(0, 10); }
+  function yesterdayUTC() { return new Date(Date.now() - 864e5).toISOString().slice(0, 10); }
+  function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+  function two(n) { return (n < 10 ? '0' : '') + n; }
+  function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove('show'); }, 3500); }
+
+  function friendly(m) {
+    m = String(m || '');
+    var l = m.toLowerCase();
+    if (l.indexOf('rate limit') > -1) return 'Lots of people are signing up right now. Please wait a few minutes and try again.';
+    if (l.indexOf('invalid login') > -1) return 'Wrong email or password. Check them and try again.';
+    if (l.indexOf('already registered') > -1 || l.indexOf('already been registered') > -1) return 'This email already has an account. Tap "Log in" below.';
+    if (l.indexOf('not confirmed') > -1) return 'Please confirm your email first. Check your inbox and spam folder.';
+    if (l.indexOf('password') > -1 && l.indexOf('characters') > -1) return 'Your password needs at least 6 characters.';
+    if (l.indexOf('invalid') > -1 && l.indexOf('email') > -1) return 'That email address doesn\'t look right. Check it and try again.';
+    if (l.indexOf('fetch') > -1 || l.indexOf('network') > -1) return 'No connection. Check your internet and try again.';
+    if (l.indexOf('already placed') > -1) return 'You\'ve already placed your brick today. Come back tomorrow!';
+    return m || 'Something went wrong. Please try again.';
+  }
+  function liveStreak() {
+    if (!profile || !profile.last_brick_date) return 0;
+    var d = profile.last_brick_date;
+    return (d === todayUTC() || d === yesterdayUTC()) ? profile.current_streak : 0;
+  }
+  function placedToday() { return !!(profile && profile.last_brick_date === todayUTC()); }
+
+  /* ---- data ---- */
+  async function loadWall() {
+    var r = await sb.from('bricks').select('id,color,user_id,placed_on,profiles(display_name)').order('id', { ascending: false }).limit(SHOW);
+    if (!r.error) bricks = (r.data || []).reverse();
+    var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
+    if (!s.error && s.data) wallTotal = Number(s.data.total_bricks) || 0;
+    drawWall(); stats();
+  }
+  async function loadProfile() {
+    if (!user) { profile = null; render(); return; }
+    var r = await sb.from('profiles').select('*').eq('id', user.id).single();
+    profile = r.error ? null : r.data;
+    render();
+  }
+
+  /* ---- drawing ---- */
+  function drawBrick(ctx, x, y, w, h, color, mine) {
+    ctx.fillStyle = color; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x, y + h - 5, w, 5);
+    ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(x, y, w, 2);
+    if (mine) { ctx.strokeStyle = CORAL; ctx.lineWidth = 5; ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5); }
+  }
+  var hit = [];
+  function drawWall() {
+    var cv = $('wall'), n = bricks.length;
+    cv.height = Math.min(ROWS, Math.max(4, Math.ceil((n + 1) / COLS))) * BH;
+    var ctx = cv.getContext('2d'), H = cv.height;
+    ctx.fillStyle = '#071820'; ctx.fillRect(0, 0, cv.width, H); hit = [];
+    function pos(i) { var row = Math.floor(i / COLS), col = i % COLS, off = row % 2 ? 0 : BW / 2; return { x: col * BW + off - BW / 2 + 4, y: H - (row + 1) * BH }; }
+    bricks.forEach(function (b, i) {
+      var p = pos(i), mine = user && b.user_id === user.id;
+      drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine);
+      hit.push({ x: p.x + 2, y: p.y + 2, w: BW - 4, h: BH - 4, b: b, mine: mine });
+    });
+    if (n < SHOW) { var f = pos(n); ctx.setLineDash([6, 5]); ctx.strokeStyle = CORAL; ctx.lineWidth = 2; ctx.strokeRect(f.x + 4, f.y + 4, BW - 8, BH - 8); ctx.setLineDash([]); }
+    if (!n) { ctx.fillStyle = '#8fb4b8'; ctx.font = '600 30px Figtree, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('The wall starts here. Be the first builder!', cv.width / 2, H / 2); }
+  }
+  $('wall').addEventListener('click', function (e) {
+    var cv = e.currentTarget, r = cv.getBoundingClientRect(), px = (e.clientX - r.left) * (cv.width / r.width), py = (e.clientY - r.top) * (cv.height / r.height);
+    var h = null; for (var i = 0; i < hit.length; i++) { var q = hit[i]; if (px >= q.x && px <= q.x + q.w && py >= q.y && py <= q.y + q.h) { h = q; break; } }
+    var tip = $('tip'); if (!h) { tip.hidden = true; return; }
+    tip.textContent = '';
+    var s = document.createElement('strong');
+    s.textContent = h.mine ? 'Your brick' : ((h.b.profiles && h.b.profiles.display_name) || 'A builder');
+    tip.appendChild(s);
+    tip.appendChild(document.createTextNode(' · placed ' + h.b.placed_on));
+    tip.hidden = false;
+  });
+  function drawPreview() {
+    var cv = $('prev'), ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+    drawBrick(ctx, 8, 12, 224, 88, sel.c, false);
+  }
+
+  /* ---- stats and milestones ---- */
+  var MILES = [['The first 10 km', 10], ['Johannesburg to Pretoria and back', 112], ['Hadrian’s Wall length', 117], ['Berlin Wall length', 155], ['Cape Town to Durban by road', 1640], ['The real Great Wall', WALL_KM]];
+  var STREAKS = [[7, 'A week of bricks'], [30, 'A month on the wall'], [100, 'One hundred days']];
+  var COUNTS = [[1000, 'First 1,000 bricks', 'The wall is alive'], [100000, '100,000 bricks', 'About 92 m of wall'], [1e6, 'Section 1 complete', 'About 0.9 km of wall and the first tower'], [1e9, '1 billion bricks', 'About 921 km of wall'], [23e9, '23 billion bricks', 'The length of the Great Wall. Then we keep going.']];
+  function stats() {
+    var total = wallTotal, p = total / TARGET, km = p * WALL_KM;
+    $('count').innerHTML = fmt(total) + ' <small>bricks laid</small>';
+    $('pct').textContent = (p * 100).toFixed(6) + '%';
+    $('barFill').style.width = Math.max(.8, p * 100) + '%';
+    $('km').textContent = (km < 1 ? (km * 1000).toFixed(1) + ' m' : km.toFixed(1) + ' km');
+    var box = $('milestones'); box.innerHTML = '';
+    MILES.forEach(function (m) {
+      var d = document.createElement('div'); d.className = 'ms' + (km >= m[1] ? ' hit' : '');
+      d.innerHTML = '<i class="dot"></i><span></span><span class="km"></span>';
+      d.children[1].textContent = m[0]; d.children[2].textContent = km >= m[1] ? 'reached' : fmt(m[1]) + ' km';
+      box.appendChild(d);
+    });
+    var mb = $('msbar'); mb.innerHTML = '';
+    COUNTS.forEach(function (m) {
+      var d = document.createElement('div'), pct = Math.min(100, total / m[0] * 100);
+      d.innerHTML = '<div class="row"><b></b><span class="mono muted" style="font-size:12.5px"></span></div><div class="bar"><i></i></div><span class="note"></span>';
+      d.querySelector('b').textContent = m[1]; d.querySelector('.mono').textContent = fmt(Math.min(total, m[0])) + ' / ' + fmt(m[0]);
+      d.querySelector('i').style.width = pct + '%'; d.querySelector('.note').textContent = m[2]; mb.appendChild(d);
+    });
+    var st = liveStreak(), ml = $('miles'); ml.innerHTML = '';
+    STREAKS.forEach(function (m) {
+      var d = document.createElement('div'); d.className = 'mile' + (st >= m[0] ? ' on' : '');
+      d.innerHTML = '<div class="badge"></div><div><h3></h3><span class="note"></span></div>';
+      d.querySelector('.badge').textContent = m[0]; d.querySelector('h3').textContent = m[1];
+      d.querySelector('.note').textContent = st >= m[0] ? 'Reached!' : (user ? 'Day ' + st + ' of ' + m[0] + '.' : 'Sign up to start your streak.');
+      ml.appendChild(d);
+    });
+  }
+
+  /* ---- UI state ---- */
+  function render() {
+    var st = liveStreak();
+    $('streakChip').hidden = !user; $('streakN').textContent = st;
+    $('placeLogin').hidden = !!user; $('placePanel').hidden = !user;
+    $('authPanel').hidden = !!user; $('profilePanel').hidden = !user;
+    var done = placedToday(), btn = $('placeBtn');
+    btn.disabled = done || busy; btn.textContent = busy ? 'Placing…' : done ? 'Come back tomorrow' : 'Place today\'s brick';
+    $('placeTitle').textContent = done ? 'Today\'s brick is placed' : 'Place today\'s brick';
+    $('heroPlace').hidden = done;
+    if (profile) {
+      $('hello').textContent = 'Hi ' + (profile.display_name || 'builder');
+      $('sStreak').textContent = st; $('sBest').textContent = profile.longest_streak; $('sTotal').textContent = profile.total_bricks;
+      if (document.activeElement !== $('nameEdit')) $('nameEdit').value = profile.display_name || '';
+    }
+    resetNote(); stats(); drawWall();
+  }
+  function nextReset() { var d = new Date(); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); }
+  function resetNote() {
+    var at = new Date(nextReset()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (placedToday()) {
+      var left = Math.max(0, nextReset() - Date.now());
+      $('resetNote').textContent = 'Next brick in ' + two(Math.floor(left / 3600000)) + ':' + two(Math.floor(left % 3600000 / 60000)) + ':' + two(Math.floor(left % 60000 / 1000)) + '. A new day starts at ' + at + ' your time.';
+    } else $('resetNote').textContent = 'A new day starts at ' + at + ' your time.';
+  }
+
+  /* ---- controls ---- */
+  var swBox = $('swatches');
+  COLORS.forEach(function (c) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'swatch'; b.style.background = c.c; b.title = c.n; b.setAttribute('aria-label', c.n);
+    b.setAttribute('aria-pressed', String(c.c === sel.c));
+    b.addEventListener('click', function () { sel.c = c.c; swBox.querySelectorAll('.swatch').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); drawPreview(); });
+    swBox.appendChild(b);
+  });
+
+  var VIEWS = ['wall', 'place', 'plans', 'goals', 'me'];
+  function show(tab) {
+    VIEWS.forEach(function (k) { $('tab-' + k).hidden = k !== tab; });
+    document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab)); });
+    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview();
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
+  document.querySelectorAll('[data-go]').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-go')); }); });
+  $('heroPlace').addEventListener('click', function () { show(user ? 'place' : 'me'); });
+
+  function confetti() {
+    if (reduced) return;
+    var cols = [CORAL, '#5fd6c4', '#ffe2bd', '#e0713a', '#f1f7f4'];
+    for (var i = 0; i < 40; i++) {
+      var s = document.createElement('span'); s.className = 'confetti'; s.style.left = (Math.random() * 100) + 'vw'; s.style.background = cols[i % cols.length];
+      s.style.setProperty('--dx', (Math.random() * 120 - 60) + 'px'); s.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg'); s.style.animationDelay = (Math.random() * .5) + 's';
+      document.body.appendChild(s); (function (el) { setTimeout(function () { el.remove(); }, 3200); })(s);
+    }
+  }
+  function thud() { var w = $('wallwrap'); w.classList.remove('thud'); void w.offsetWidth; w.classList.add('thud'); }
+
+  $('placeBtn').addEventListener('click', async function () {
+    if (!user || placedToday() || busy) return;
+    busy = true; render();
+    var r = await sb.rpc('place_brick', { p_color: sel.c, p_message: null });
+    busy = false;
+    if (r.error) { render(); toast(friendly(r.error.message)); return; }
+    await loadProfile(); await loadWall();
+    show('wall'); thud();
+    var st = liveStreak(), m = STREAKS.filter(function (x) { return x[0] === st; })[0];
+    if (m) { confetti(); toast(st + '-day streak! ' + m[1] + '.'); }
+    else { confetti(); toast('Brick placed. See you tomorrow!'); }
+  });
+
+  /* ---- auth ---- */
+  var mode = 'signup';
+  function setMode(m) {
+    mode = m; var su = m === 'signup';
+    $('authTitle').textContent = su ? 'Create your account' : 'Welcome back';
+    $('authSub').textContent = su ? 'Free. Takes 30 seconds.' : 'Log in to place today\'s brick.';
+    $('authName').hidden = !su; $('authBtn').textContent = su ? 'Sign up' : 'Log in';
+    $('authPass').setAttribute('autocomplete', su ? 'new-password' : 'current-password');
+    $('switchText').textContent = su ? 'Already have an account?' : 'New here?';
+    $('switchBtn').textContent = su ? 'Log in' : 'Create an account';
+    $('authErr').hidden = true; $('authOk').hidden = true;
+    $('forgotRow').hidden = su;
+  }
+  $('showPass').addEventListener('change', function () { $('authPass').type = this.checked ? 'text' : 'password'; });
+  $('forgotBtn').addEventListener('click', async function () {
+    var email = $('authEmail').value.trim(), err = $('authErr'), ok = $('authOk'); err.hidden = true; ok.hidden = true;
+    if (!email) { err.textContent = 'Type your email above first, then tap "Forgot your password?" again.'; err.hidden = false; return; }
+    var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
+    if (r.error) { err.textContent = friendly(r.error.message); err.hidden = false; }
+    else { ok.textContent = 'Check your email for a link to choose a new password.'; ok.hidden = false; }
+  });
+  $('resetBtn').addEventListener('click', async function () {
+    var p = $('newPass').value, e = $('resetErr'); e.hidden = true;
+    if (p.length < 6) { e.textContent = 'Your password needs at least 6 characters.'; e.hidden = false; return; }
+    var r = await sb.auth.updateUser({ password: p });
+    if (r.error) { e.textContent = friendly(r.error.message); e.hidden = false; return; }
+    $('resetPanel').hidden = true; toast('Password changed. You\'re logged in.'); render(); show('place');
+  });
+  $('switchBtn').addEventListener('click', function () { setMode(mode === 'signup' ? 'login' : 'signup'); });
+  $('authForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var email = $('authEmail').value.trim(), pass = $('authPass').value, name = $('authName').value.trim();
+    var err = $('authErr'), ok = $('authOk'); err.hidden = true; ok.hidden = true;
+    if (!email || pass.length < 6) { err.textContent = 'Enter your email and a password of at least 6 characters.'; err.hidden = false; return; }
+    $('authBtn').disabled = true;
+    var r;
+    if (mode === 'signup') {
+      r = await sb.auth.signUp({ email: email, password: pass, options: { data: { display_name: name || email.split('@')[0] }, emailRedirectTo: location.origin } });
+      if (!r.error && !r.data.session) { ok.textContent = 'Almost done! Check your email and tap the link to confirm, then come back and log in.'; ok.hidden = false; setMode('login'); ok.hidden = false; }
+    } else {
+      r = await sb.auth.signInWithPassword({ email: email, password: pass });
+    }
+    $('authBtn').disabled = false;
+    if (r.error) { err.textContent = friendly(r.error.message); err.hidden = false; }
+  });
+  $('logout').addEventListener('click', async function () { await sb.auth.signOut(); toast('Logged out.'); show('wall'); });
+  $('saveName').addEventListener('click', async function () {
+    var n = $('nameEdit').value.trim(); if (!n || !user) return;
+    var r = await sb.from('profiles').update({ display_name: n }).eq('id', user.id);
+    if (r.error) toast(friendly(r.error.message)); else { toast('Name saved.'); await loadProfile(); await loadWall(); }
+  });
+
+  sb.auth.onAuthStateChange(function (event, session) {
+    if (event === 'PASSWORD_RECOVERY') {
+      setTimeout(function () { show('me'); $('authPanel').hidden = true; $('profilePanel').hidden = true; $('resetPanel').hidden = false; }, 0);
+    }
+    var was = user && user.id;
+    user = session ? session.user : null;
+    if ((user && user.id) !== was) {
+      setTimeout(async function () {
+        await loadProfile(); drawWall();
+        if (event === 'SIGNED_IN' && !$('tab-me').hidden) { show('place'); toast('Welcome' + (profile && profile.display_name ? ', ' + profile.display_name : '') + '!'); }
+      }, 0);
+    }
+  });
+
+  /* ---- install as an app ---- */
+  var deferredPrompt = null;
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function dismissed() { try { return localStorage.getItem('db_install_hide') === '1'; } catch (e) { return false; } }
+  function showInstall(iosMode) {
+    if (standalone || dismissed()) return;
+    $('installCard').hidden = false;
+    if (iosMode) {
+      $('installText').textContent = 'On iPhone: tap the Share button (the square with an arrow) at the bottom of Safari, then tap "Add to Home Screen".';
+      $('installBtn').hidden = true;
+    }
+  }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredPrompt = e; showInstall(false); });
+  window.addEventListener('appinstalled', function () { $('installCard').hidden = true; toast('Daily Brick is on your home screen!'); });
+  $('installBtn').addEventListener('click', async function () {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    try { await deferredPrompt.userChoice; } catch (e) {}
+    deferredPrompt = null; $('installCard').hidden = true;
+  });
+  $('installClose').addEventListener('click', function () { $('installCard').hidden = true; try { localStorage.setItem('db_install_hide', '1'); } catch (e) {} });
+  if (isIOS) showInstall(true);
+  if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+
+  /* ---- start ---- */
+  setMode('signup'); drawPreview(); render();
+  sb.auth.getSession().then(function (r) { user = r.data.session ? r.data.session.user : null; loadProfile(); });
+  loadWall();
+  setInterval(resetNote, 1000);
+  setInterval(loadWall, 60000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { loadWall(); loadProfile(); } });
+})();
+</script>
+</body>
+</html>
