@@ -190,6 +190,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
 .tabs .in { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .sr { left: 0; top: 0; }
+.rewards { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--mortar); }
 .logo-box { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--mortar); }
 .logo-box img { height: 44px; width: auto; max-width: 50%; border-radius: 4px; background: #fff; }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
@@ -237,7 +238,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <div class="txt">
         <span class="label">Great Wall of China &middot; 23 billion bricks</span>
         <h1>One brick a day. <span>A wall built by the world.</span></h1>
-        <p>Place your free daily brick. Make it special from R19. Watch the wall grow past the Great Wall of China.</p>
+        <p>Place your free daily brick and write your name on it. Watch the wall grow past the Great Wall of China.</p>
       </div>
     </div>
 
@@ -283,8 +284,8 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <div class="swatches" id="swatches"></div>
       <span class="label">Finish</span>
       <div class="opts" id="finishes"></div>
-      <label class="label" for="inscr">Inscription</label>
-      <input type="text" id="inscr" maxlength="12" placeholder="Initials or a short word (+R19)" autocomplete="off">
+      <label class="label" for="inscr">Writing on your brick (free)</label>
+      <input type="text" id="inscr" maxlength="12" placeholder="Initials or a short word (free)" autocomplete="off">
       <span class="label">Photo or picture</span>
       <div class="photo-row" style="display:grid;gap:6px">
         <label class="opt" for="photo" id="photoLabel"><span id="photoText">Add a photo or picture</span><span class="price">+R19</span></label>
@@ -306,9 +307,9 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <p class="muted" style="font-size:14px">The daily brick is free forever. Extras stay low-priced so anyone can join.</p>
       <div class="plans">
         <div class="plan"><div class="row"><h3>Builder</h3><span class="amt">Free</span></div>
-          <ul><li>One brick every day</li><li>8 colours</li><li>Streaks and your spot on the wall</li></ul></div>
+          <ul><li>One brick every day</li><li>8 colours</li><li>Write your initials or a short word on it</li><li>Streaks, rewards and your spot on the wall</li></ul></div>
         <div class="plan hl"><div class="row"><h3>Brick extras</h3><span class="amt">R19 each</span></div>
-          <ul><li>Gold leaf, glazed or carved finish</li><li>Inscribe initials or a word</li><li>Upgrade today's brick even after placing it</li><li>Pay only on the days you want it (about $1)</li><li>Put a photo or picture on your brick</li></ul></div>
+          <ul><li>Gold leaf, glazed or carved finish</li><li>Upgrade today's brick even after placing it</li><li>Pay only on the days you want it (about $1)</li><li>Put a photo or picture on your brick</li></ul></div>
         <div class="plan" id="bizPlan"><div class="row"><h3>Business</h3><span class="amt">R89 / 30 days</span></div>
           <ul><li>Up to 10 bricks a day, every day</li><li>Your logo and name across your bricks on the wall</li><li>No contract. Each payment adds 30 days</li></ul>
           <div class="form" id="bizBuy">
@@ -376,6 +377,12 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
         <div class="stat"><b id="sBest">0</b><span class="note">Best streak</span></div>
         <div class="stat"><b id="sTotal">0</b><span class="note">Bricks laid</span></div>
       </div>
+      <div class="rewards" id="rewardsBox">
+        <div class="row"><h3>Your rewards</h3><span class="tag" id="badgeText" hidden></span></div>
+        <p class="note" id="rewardsText"></p>
+        <div class="row"><span>Streak freezes: <b id="freezeN">0</b> of 5</span><button class="btn ghost" id="buyFreeze" type="button" style="width:auto;min-height:0">Buy one for R9</button></div>
+        <p class="note">A freeze saves your streak when you miss a day, for up to 3 missed days in a row.</p>
+      </div>
       <label class="label" for="nameEdit">Name on your bricks</label>
       <input type="text" id="nameEdit" maxlength="30" autocomplete="nickname">
       <button class="btn" type="button" id="saveName">Save name</button>
@@ -418,7 +425,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   var user = null, profile = null, bricks = [], wallTotal = 0, busy = false;
   var sel = { c: COLORS[5].c, f: 'plain', photo: null, blob: null };
   var FINISHES = [{ id: 'plain', n: 'Plain', p: 0 }, { id: 'gold', n: 'Gold leaf', p: 19 }, { id: 'glaze', n: 'Glazed', p: 19 }, { id: 'carved', n: 'Carved pattern', p: 19 }];
-  var PRICE_INS = 19, PRICE_PHOTO = 19;
+  var PRICE_INS = 0, PRICE_PHOTO = 19;
 
   function $(id) { return document.getElementById(id); }
   function todayUTC() { return new Date().toISOString().slice(0, 10); }
@@ -441,11 +448,23 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     if (l.indexOf('already placed') > -1) return 'You\'ve already placed your brick today. Come back tomorrow!';
     return m || 'Something went wrong. Please try again.';
   }
+  function daysSince(d) { return Math.round((Date.parse(todayUTC()) - Date.parse(d)) / 864e5); }
   function liveStreak() {
     if (!profile || !profile.last_brick_date) return 0;
-    var d = profile.last_brick_date;
-    return (d === todayUTC() || d === yesterdayUTC()) ? profile.current_streak : 0;
+    var gap = daysSince(profile.last_brick_date), missed = gap - 1;
+    if (gap <= 1) return profile.current_streak;
+    if (missed <= 3 && (profile.freezes || 0) >= missed) return profile.current_streak;
+    return 0;
   }
+  function frozenDays() {
+    if (!profile || !profile.last_brick_date) return 0;
+    var missed = daysSince(profile.last_brick_date) - 1;
+    return missed >= 1 && missed <= 3 && (profile.freezes || 0) >= missed && profile.current_streak > 0 ? missed : 0;
+  }
+  var REWARD = { glaze: 'credit_glaze', gold: 'credit_gold', carved: 'credit_carved' };
+  function creditFor(fid) { return profile && REWARD[fid] ? (profile[REWARD[fid]] || 0) : 0; }
+  function rewardFinish() { return sel.f !== 'plain' && creditFor(sel.f) > 0; }
+  function badgeFor(n) { return n >= 365 ? 'Year builder' : n >= 100 ? 'Centurion' : n >= 30 ? 'Month builder' : n >= 7 ? 'Week builder' : ''; }
   var todayCount = 0;
   function bizActive() { return !!(profile && profile.business_until && new Date(profile.business_until) > new Date()); }
   function dailyLimit() { return bizActive() ? 10 : 1; }
@@ -454,7 +473,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 
   /* ---- data ---- */
   async function loadWall() {
-    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles(display_name,business_name,logo_url,logo_status)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles(display_name,business_name,logo_url,logo_status,longest_streak)').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
     var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
     if (!s.error && s.data) wallTotal = Number(s.data.total_bricks) || 0;
@@ -544,6 +563,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     bricks.forEach(function (b, i) {
       var p = pos(i), mine = user && b.user_id === user.id;
       drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine, b.finish, b.message, photoSrc(b, mine));
+      if ((b.profiles || {}).longest_streak >= 365) { ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 3; ctx.strokeRect(p.x + 3.5, p.y + 3.5, BW - 7, BH - 7); }
       hit.push({ x: p.x + 2, y: p.y + 2, w: BW - 4, h: BH - 4, b: b, mine: mine });
     });
     drawBanners(ctx, pos);
@@ -559,6 +579,8 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     var pr = h.b.profiles || {};
     s.textContent = h.mine ? 'Your brick' : ((h.b.biz && pr.business_name) || pr.display_name || 'A builder');
     if (h.b.biz && !h.mine) s.textContent += ' (business)';
+    var bdg = badgeFor(pr.longest_streak || 0);
+    if (bdg) s.textContent += ' \u00b7 ' + bdg;
     tip.appendChild(s);
     var fn = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[h.b.finish];
     var ph = h.b.photo_status === 'approved' ? ' · Photo' : (h.mine && h.b.photo_status === 'pending') ? ' · Photo waiting for approval' : (h.mine && h.b.photo_status === 'rejected') ? ' · Photo not approved' : '';
@@ -572,7 +594,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 
   /* ---- stats and milestones ---- */
   var MILES = [['The first 10 km', 10], ['Johannesburg to Pretoria and back', 112], ['Hadrian’s Wall length', 117], ['Berlin Wall length', 155], ['Cape Town to Durban by road', 1640], ['The real Great Wall', WALL_KM]];
-  var STREAKS = [[7, 'A week of bricks'], [30, 'A month on the wall'], [100, 'One hundred days']];
+  var STREAKS = [[7, 'A week of bricks', 'a free Glazed brick'], [30, 'A month on the wall', 'a free Gold brick and a streak freeze'], [100, 'One hundred days', 'a free Carved brick and the Centurion badge'], [365, 'A year of bricks', 'a golden outline on all your bricks']];
   var COUNTS = [[1000, 'First 1,000 bricks', 'The wall is alive'], [100000, '100,000 bricks', 'About 92 m of wall'], [1e6, 'Section 1 complete', 'About 0.9 km of wall and the first tower'], [1e9, '1 billion bricks', 'About 921 km of wall'], [23e9, '23 billion bricks', 'The length of the Great Wall. Then we keep going.']];
   function stats() {
     var total = wallTotal, p = total / TARGET, km = p * WALL_KM;
@@ -599,7 +621,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       var d = document.createElement('div'); d.className = 'mile' + (st >= m[0] ? ' on' : '');
       d.innerHTML = '<div class="badge"></div><div><h3></h3><span class="note"></span></div>';
       d.querySelector('.badge').textContent = m[0]; d.querySelector('h3').textContent = m[1];
-      d.querySelector('.note').textContent = st >= m[0] ? 'Reached!' : (user ? 'Day ' + st + ' of ' + m[0] + '.' : 'Sign up to start your streak.');
+      d.querySelector('.note').textContent = st >= m[0] ? 'Reached! You earned ' + m[2] + '.' : 'Reward: ' + m[2] + '.' + (user ? ' Day ' + st + ' of ' + m[0] + '.' : '');
       ml.appendChild(d);
     });
   }
@@ -612,12 +634,14 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     $('authPanel').hidden = !!user; $('profilePanel').hidden = !user;
     var done = placedToday(), btn = $('placeBtn'), cost = total(), biz = bizActive(), left = dailyLimit() - todayCount;
     var upgrade = biz ? todayCount > 0 : done;
-    btn.disabled = busy || (done && !cost);
+    var rw = rewardFinish();
+    btn.disabled = busy || (done && !cost && !rw);
     if (busy) btn.textContent = 'Please wait…';
     else if (cost) btn.textContent = upgrade ? 'Pay R' + cost + (biz ? ' to upgrade your latest brick' : ' to upgrade today\'s brick') : 'Pay R' + cost + ' and place brick';
+    else if (rw) btn.textContent = upgrade ? 'Use your free reward on today\'s brick' : 'Place brick with your free reward';
     else if (done) btn.textContent = 'Come back tomorrow';
     else btn.textContent = biz ? 'Place brick ' + (todayCount + 1) + ' of 10' : 'Place today\'s brick';
-    $('placeAll').hidden = !biz || busy || !!cost || left < 2;
+    $('placeAll').hidden = !biz || busy || !!cost || rw || left < 2;
     $('placeAll').textContent = 'Place all ' + left + ' remaining bricks';
     $('placeTitle').textContent = biz ? (done ? 'All 10 business bricks placed' : 'Place your business bricks') : done ? 'Today\'s brick is placed' : 'Place today\'s brick';
     $('totalLabel').textContent = upgrade ? (biz ? 'Upgrade your latest brick' : 'Upgrade today\'s brick') : 'Today\'s total';
@@ -627,7 +651,29 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       $('sStreak').textContent = st; $('sBest').textContent = profile.longest_streak; $('sTotal').textContent = profile.total_bricks;
       if (document.activeElement !== $('nameEdit')) $('nameEdit').value = profile.display_name || '';
     }
+    renderRewards();
     resetNote(); stats(); drawWall();
+  }
+  function renderRewards() {
+    fiBox.querySelectorAll('.opt').forEach(function (b) {
+      var fid = b.getAttribute('data-fid'), c = creditFor(fid), p = FINISHES.filter(function (x) { return x.id === fid; })[0].p;
+      b.children[1].textContent = c > 0 ? 'Free reward (' + c + ')' : p ? '+R' + p : 'Free';
+      b.classList.toggle('has', c > 0 && b.getAttribute('aria-pressed') !== 'true');
+    });
+    if (!profile) return;
+    var have = [];
+    if (profile.credit_glaze) have.push(profile.credit_glaze + ' free Glazed');
+    if (profile.credit_gold) have.push(profile.credit_gold + ' free Gold leaf');
+    if (profile.credit_carved) have.push(profile.credit_carved + ' free Carved');
+    var st = liveStreak(), next = STREAKS.filter(function (m) { return m[0] > st; })[0];
+    $('rewardsText').textContent = (have.length ? 'Ready to use on the Place screen: ' + have.join(', ') + '. ' : '') +
+      (next ? 'Next: ' + next[2] + ' at a ' + next[0] + '-day streak (' + (next[0] - st) + ' to go).' : 'You have reached every streak reward. Legend.');
+    $('freezeN').textContent = profile.freezes || 0;
+    $('buyFreeze').hidden = (profile.freezes || 0) >= 5;
+    var bd = badgeFor(profile.longest_streak || 0);
+    $('badgeText').hidden = !bd; $('badgeText').textContent = bd;
+    var fz = frozenDays();
+    if (fz) $('resetNote').textContent = 'You missed ' + (fz === 1 ? 'a day' : fz + ' days') + '. Place a brick today and ' + (fz === 1 ? 'a freeze' : fz + ' freezes') + ' will save your streak.';
   }
   function nextReset() { var d = new Date(); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); }
   function resetNote() {
@@ -635,7 +681,8 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     if (placedToday()) {
       var left = Math.max(0, nextReset() - Date.now());
       $('resetNote').textContent = 'Next brick in ' + two(Math.floor(left / 3600000)) + ':' + two(Math.floor(left % 3600000 / 60000)) + ':' + two(Math.floor(left % 60000 / 1000)) + '. A new day starts at ' + at + ' your time.';
-    } else $('resetNote').textContent = 'A new day starts at ' + at + ' your time.';
+    } else if (frozenDays()) { var fz = frozenDays(); $('resetNote').textContent = 'You missed ' + (fz === 1 ? 'a day' : fz + ' days') + '. Place a brick today and ' + (fz === 1 ? 'a freeze' : fz + ' freezes') + ' will save your streak.'; }
+    else $('resetNote').textContent = 'A new day starts at ' + at + ' your time.';
   }
 
   /* ---- controls ---- */
@@ -648,14 +695,14 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   });
 
   function total() {
-    var f = FINISHES.filter(function (x) { return x.id === sel.f; })[0].p + ($('inscr').value.trim() ? PRICE_INS : 0) + (sel.photo ? PRICE_PHOTO : 0);
+    var f = (rewardFinish() ? 0 : FINISHES.filter(function (x) { return x.id === sel.f; })[0].p) + ($('inscr').value.trim() ? PRICE_INS : 0) + (sel.photo ? PRICE_PHOTO : 0);
     $('placeTotal').textContent = f ? 'R' + f + '.00' : 'Free';
     return f;
   }
   var fiBox = $('finishes');
   FINISHES.forEach(function (f) {
     var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
-    b.innerHTML = '<span></span><span class="price"></span>'; b.children[0].textContent = f.n; b.children[1].textContent = f.p ? '+R' + f.p : 'Free';
+    b.innerHTML = '<span></span><span class="price"></span>'; b.children[0].textContent = f.n; b.children[1].textContent = f.p ? '+R' + f.p : 'Free'; b.setAttribute('data-fid', f.id);
     b.setAttribute('aria-pressed', String(f.id === sel.f));
     b.addEventListener('click', function () { sel.f = f.id; fiBox.querySelectorAll('.opt').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); drawPreview(); render(); });
     fiBox.appendChild(b);
@@ -715,7 +762,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     await loadProfile(); await loadWall();
     show('wall'); thud(); confetti();
     var st = liveStreak(), m = STREAKS.filter(function (x) { return x[0] === st; })[0];
-    toast(m && !msg ? st + '-day streak! ' + m[1] + '.' : (msg || 'Brick placed. See you tomorrow!'));
+    toast(m && !msg ? st + '-day streak! You earned ' + m[2] + '.' : (msg || 'Brick placed. See you tomorrow!'));
   }
   async function fnError(err) {
     try { var j = await err.context.json(); return j.error || j.message || err.message; } catch (e) { return err && err.message; }
@@ -835,14 +882,44 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     await loadProfile(); await loadWall();
   });
 
+  async function useReward() {
+    var fin = sel.f, name = { glaze: 'Glazed', gold: 'Gold leaf', carved: 'Carved' }[fin];
+    var paidAfter = total() > 0;
+    busy = true; render();
+    var r = await sb.rpc('use_reward', { p_color: sel.c, p_finish: fin, p_message: $('inscr').value.trim() || null });
+    busy = false;
+    if (r.error) { render(); toast(friendly(r.error.message)); return; }
+    sel.f = 'plain';
+    fiBox.querySelectorAll('.opt').forEach(function (x, i) { x.setAttribute('aria-pressed', String(i === 0)); });
+    if (paidAfter) { await loadProfile(); toast('Free ' + name + ' finish added. Now pay for the rest.'); payForExtras(); return; }
+    celebrate('Free ' + name + ' brick placed. Enjoy your reward!');
+  }
+  $('buyFreeze').addEventListener('click', async function () {
+    if (!user) return;
+    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'freeze' } });
+    if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
+    var ref = r.data.reference;
+    new PaystackPop().resumeTransaction(r.data.access_code, {
+      onSuccess: async function () {
+        var ok = await verifyPayment(ref);
+        await loadProfile();
+        toast(ok ? 'Streak freeze added. Your streak is safer now.' : 'Payment received. Your freeze will appear in a minute or two.');
+      },
+      onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
+      onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
+    });
+  });
   $('placeBtn').addEventListener('click', async function () {
     if (!user || busy) return;
+    if (rewardFinish()) { useReward(); return; }
     if (total()) { payForExtras(); return; }
     if (placedToday()) return;
     busy = true; render();
-    var r = await sb.rpc('place_brick', { p_color: sel.c, p_message: null });
+    var r = await sb.rpc('place_brick', { p_color: sel.c, p_message: $('inscr').value.trim() || null });
     busy = false;
     if (r.error) { render(); toast(friendly(r.error.message)); return; }
+    $('inscr').value = ''; drawPreview();
     celebrate(bizActive() && todayCount + 1 < 10 ? 'Brick ' + (todayCount + 1) + ' of 10 placed.' : null);
   });
   $('placeAll').addEventListener('click', async function () {
