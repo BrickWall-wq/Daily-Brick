@@ -6,11 +6,18 @@
 <title>Daily Brick</title>
 <meta name="description" content="Place one free brick a day and help build a wall longer than the Great Wall of China.">
 <meta name="theme-color" content="#0a1a24">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Brick">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect x='2' y='4' width='12' height='7' rx='1' fill='%23ff9a62'/%3E%3Crect x='16' y='4' width='12' height='7' rx='1' fill='%23e0713a'/%3E%3Crect x='9' y='13' width='12' height='7' rx='1' fill='%23ff9a62'/%3E%3Crect x='2' y='22' width='12' height='7' rx='1' fill='%23e0713a'/%3E%3Crect x='16' y='22' width='12' height='7' rx='1' fill='%23ff9a62'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://js.paystack.co/v2/inline.js" defer></script>
 <style>
 [hidden] { display: none !important; }
 body { padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -222,7 +229,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <div class="txt">
         <span class="label">Great Wall of China &middot; 23 billion bricks</span>
         <h1>One brick a day. <span>A wall built by the world.</span></h1>
-        <p>Place your free daily brick. Extras coming soon. Watch the wall grow past the Great Wall of China.</p>
+        <p>Place your free daily brick. Make it special from R19. Watch the wall grow past the Great Wall of China.</p>
       </div>
     </div>
 
@@ -242,6 +249,12 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     </div>
     <button class="btn" type="button" id="heroPlace">Place today's brick</button>
 
+    <div class="card" id="installCard" hidden>
+      <div class="row"><h3>Get Daily Brick on your phone</h3><button class="btn ghost" type="button" id="installClose" style="width:auto;min-height:0">Not now</button></div>
+      <p class="muted" id="installText">Add it to your home screen so your daily brick is one tap away.</p>
+      <button class="btn" type="button" id="installBtn">Install app</button>
+    </div>
+
     <div class="card">
       <h2>Next milestone</h2>
       <div id="milestones"></div>
@@ -260,10 +273,12 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <div class="preview"><canvas id="prev" width="240" height="112"></canvas><p class="muted" style="font-size:14px">Your brick goes at the end of the wall, right where today's builders are working.</p></div>
       <span class="label">Colour (free)</span>
       <div class="swatches" id="swatches"></div>
-      <div class="opts">
-        <div class="opt" style="opacity:.6"><span>Gold leaf, glazed and carved finishes</span><span class="soon">Soon</span></div>
-        <div class="opt" style="opacity:.6"><span>Inscription or photo on your brick</span><span class="soon">Soon</span></div>
-      </div>
+      <span class="label">Finish</span>
+      <div class="opts" id="finishes"></div>
+      <label class="label" for="inscr">Inscription</label>
+      <input type="text" id="inscr" maxlength="12" placeholder="Initials or a short word (+R19)" autocomplete="off">
+      <div class="opt" style="opacity:.6"><span>Photo or picture on your brick</span><span class="soon">Soon</span></div>
+      <div class="total"><span id="totalLabel">Today's total</span><b id="placeTotal">Free</b></div>
       <button class="btn" id="placeBtn" type="button">Place today's brick</button>
       <p class="note" id="resetNote" style="text-align:center"></p>
     </div>
@@ -273,12 +288,12 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   <section id="tab-plans" class="view" aria-label="Plans" hidden>
     <div class="panel">
       <h2>Plans</h2>
-      <p class="muted" style="font-size:14px">The daily brick is free forever. Extras are coming soon and will stay low-priced so anyone can join.</p>
+      <p class="muted" style="font-size:14px">The daily brick is free forever. Extras stay low-priced so anyone can join.</p>
       <div class="plans">
-        <div class="plan hl"><div class="row"><h3>Builder</h3><span class="amt">Free</span></div>
+        <div class="plan"><div class="row"><h3>Builder</h3><span class="amt">Free</span></div>
           <ul><li>One brick every day</li><li>8 colours</li><li>Streaks and your spot on the wall</li></ul></div>
-        <div class="plan"><div class="row"><h3>Brick extras</h3><span class="soon">Coming soon</span></div>
-          <ul><li>Gold leaf, glazed or carved finish</li><li>Inscribe initials or a word</li><li>Put a photo or picture on your brick</li><li>From $1, only on the days you want it</li></ul></div>
+        <div class="plan hl"><div class="row"><h3>Brick extras</h3><span class="amt">R19 each</span></div>
+          <ul><li>Gold leaf, glazed or carved finish</li><li>Inscribe initials or a word</li><li>Upgrade today's brick even after placing it</li><li>Pay only on the days you want it (about $1)</li><li>Photos on bricks coming soon</li></ul></div>
         <div class="plan"><div class="row"><h3>Business</h3><span class="soon">Coming soon</span></div>
           <ul><li>Up to 10 bricks a day</li><li>Your logo across the day's bricks</li><li>Shareable "we built this" link</li></ul></div>
         <div class="plan"><div class="row"><h3>Supporter pass</h3><span class="soon">Coming soon</span></div>
@@ -308,11 +323,19 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
         <input type="text" id="authName" placeholder="Your name (shown on your bricks)" maxlength="30" autocomplete="nickname">
         <input type="email" id="authEmail" placeholder="Email" autocomplete="email" required>
         <input type="password" id="authPass" placeholder="Password (at least 6 characters)" autocomplete="new-password" required>
+        <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="showPass"> Show password</label>
         <p class="err" id="authErr" hidden></p>
         <p class="ok" id="authOk" hidden></p>
         <button class="btn" type="submit" id="authBtn">Sign up</button>
       </form>
       <p class="switch"><span id="switchText">Already have an account?</span> <button type="button" id="switchBtn">Log in</button></p>
+      <p class="switch" id="forgotRow" hidden><button type="button" id="forgotBtn">Forgot your password?</button></p>
+    </div>
+    <div class="panel" id="resetPanel" hidden>
+      <h2>Choose a new password</h2>
+      <input type="password" id="newPass" placeholder="New password (at least 6 characters)" autocomplete="new-password">
+      <p class="err" id="resetErr" hidden></p>
+      <button class="btn" type="button" id="resetBtn">Save new password</button>
     </div>
     <div class="panel" id="profilePanel" hidden>
       <h2 id="hello">Hi</h2>
@@ -357,7 +380,9 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   var COLS = 13, BW = 80, BH = 40, ROWS = 16, SHOW = COLS * ROWS;
 
   var user = null, profile = null, bricks = [], wallTotal = 0, busy = false;
-  var sel = { c: COLORS[5].c };
+  var sel = { c: COLORS[5].c, f: 'plain' };
+  var FINISHES = [{ id: 'plain', n: 'Plain', p: 0 }, { id: 'gold', n: 'Gold leaf', p: 19 }, { id: 'glaze', n: 'Glazed', p: 19 }, { id: 'carved', n: 'Carved pattern', p: 19 }];
+  var PRICE_INS = 19;
 
   function $(id) { return document.getElementById(id); }
   function todayUTC() { return new Date().toISOString().slice(0, 10); }
@@ -366,6 +391,19 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   function two(n) { return (n < 10 ? '0' : '') + n; }
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove('show'); }, 3500); }
 
+  function friendly(m) {
+    m = String(m || '');
+    var l = m.toLowerCase();
+    if (l.indexOf('rate limit') > -1) return 'Lots of people are signing up right now. Please wait a few minutes and try again.';
+    if (l.indexOf('invalid login') > -1) return 'Wrong email or password. Check them and try again.';
+    if (l.indexOf('already registered') > -1 || l.indexOf('already been registered') > -1) return 'This email already has an account. Tap "Log in" below.';
+    if (l.indexOf('not confirmed') > -1) return 'Please confirm your email first. Check your inbox and spam folder.';
+    if (l.indexOf('password') > -1 && l.indexOf('characters') > -1) return 'Your password needs at least 6 characters.';
+    if (l.indexOf('invalid') > -1 && l.indexOf('email') > -1) return 'That email address doesn\'t look right. Check it and try again.';
+    if (l.indexOf('fetch') > -1 || l.indexOf('network') > -1) return 'No connection. Check your internet and try again.';
+    if (l.indexOf('already placed') > -1) return 'You\'ve already placed your brick today. Come back tomorrow!';
+    return m || 'Something went wrong. Please try again.';
+  }
   function liveStreak() {
     if (!profile || !profile.last_brick_date) return 0;
     var d = profile.last_brick_date;
@@ -375,7 +413,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 
   /* ---- data ---- */
   async function loadWall() {
-    var r = await sb.from('bricks').select('id,color,user_id,placed_on,profiles(display_name)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,user_id,placed_on,profiles(display_name)').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
     var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
     if (!s.error && s.data) wallTotal = Number(s.data.total_bricks) || 0;
@@ -389,10 +427,14 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   }
 
   /* ---- drawing ---- */
-  function drawBrick(ctx, x, y, w, h, color, mine) {
-    ctx.fillStyle = color; ctx.fillRect(x, y, w, h);
+  function drawBrick(ctx, x, y, w, h, color, mine, finish, ins) {
+    ctx.fillStyle = finish === 'gold' ? '#d9a93b' : color; ctx.fillRect(x, y, w, h);
+    if (finish === 'gold') { var g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, 'rgba(255,245,200,.55)'); g.addColorStop(.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,240,180,.35)'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); }
+    if (finish === 'glaze') { ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(x + 3, y + 3, w - 6, h * .3); }
+    if (finish === 'carved') { ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; for (var k = 8; k < w + 6; k += 12) { ctx.beginPath(); ctx.moveTo(x + k, y + 4); ctx.lineTo(x + k - 6, y + h - 4); ctx.stroke(); } ctx.restore(); }
     ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x, y + h - 5, w, 5);
     ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(x, y, w, 2);
+    if (ins) { ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.font = '600 ' + Math.round(h * .38) + 'px Figtree, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ins, x + w / 2, y + h / 2 - 1, w - 6); }
     if (mine) { ctx.strokeStyle = CORAL; ctx.lineWidth = 5; ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5); }
   }
   var hit = [];
@@ -404,7 +446,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     function pos(i) { var row = Math.floor(i / COLS), col = i % COLS, off = row % 2 ? 0 : BW / 2; return { x: col * BW + off - BW / 2 + 4, y: H - (row + 1) * BH }; }
     bricks.forEach(function (b, i) {
       var p = pos(i), mine = user && b.user_id === user.id;
-      drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine);
+      drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine, b.finish, b.message);
       hit.push({ x: p.x + 2, y: p.y + 2, w: BW - 4, h: BH - 4, b: b, mine: mine });
     });
     if (n < SHOW) { var f = pos(n); ctx.setLineDash([6, 5]); ctx.strokeStyle = CORAL; ctx.lineWidth = 2; ctx.strokeRect(f.x + 4, f.y + 4, BW - 8, BH - 8); ctx.setLineDash([]); }
@@ -418,12 +460,13 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     var s = document.createElement('strong');
     s.textContent = h.mine ? 'Your brick' : ((h.b.profiles && h.b.profiles.display_name) || 'A builder');
     tip.appendChild(s);
-    tip.appendChild(document.createTextNode(' · placed ' + h.b.placed_on));
+    var fn = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[h.b.finish];
+    tip.appendChild(document.createTextNode((fn ? ' · ' + fn : '') + (h.b.message ? ' · \u201c' + h.b.message + '\u201d' : '') + ' · placed ' + h.b.placed_on));
     tip.hidden = false;
   });
   function drawPreview() {
     var cv = $('prev'), ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
-    drawBrick(ctx, 8, 12, 224, 88, sel.c, false);
+    drawBrick(ctx, 8, 12, 224, 88, sel.c, false, sel.f, $('inscr').value.trim());
   }
 
   /* ---- stats and milestones ---- */
@@ -466,9 +509,11 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     $('streakChip').hidden = !user; $('streakN').textContent = st;
     $('placeLogin').hidden = !!user; $('placePanel').hidden = !user;
     $('authPanel').hidden = !!user; $('profilePanel').hidden = !user;
-    var done = placedToday(), btn = $('placeBtn');
-    btn.disabled = done || busy; btn.textContent = busy ? 'Placing…' : done ? 'Come back tomorrow' : 'Place today\'s brick';
+    var done = placedToday(), btn = $('placeBtn'), cost = total();
+    btn.disabled = busy || (done && !cost);
+    btn.textContent = busy ? 'Please wait\u2026' : cost ? (done ? 'Pay R' + cost + ' to upgrade today\'s brick' : 'Pay R' + cost + ' and place brick') : done ? 'Come back tomorrow' : 'Place today\'s brick';
     $('placeTitle').textContent = done ? 'Today\'s brick is placed' : 'Place today\'s brick';
+    $('totalLabel').textContent = done ? 'Upgrade today\'s brick' : 'Today\'s total';
     $('heroPlace').hidden = done;
     if (profile) {
       $('hello').textContent = 'Hi ' + (profile.display_name || 'builder');
@@ -495,6 +540,26 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     swBox.appendChild(b);
   });
 
+  function total() {
+    var f = FINISHES.filter(function (x) { return x.id === sel.f; })[0].p + ($('inscr').value.trim() ? PRICE_INS : 0);
+    $('placeTotal').textContent = f ? 'R' + f + '.00' : 'Free';
+    return f;
+  }
+  var fiBox = $('finishes');
+  FINISHES.forEach(function (f) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+    b.innerHTML = '<span></span><span class="price"></span>'; b.children[0].textContent = f.n; b.children[1].textContent = f.p ? '+R' + f.p : 'Free';
+    b.setAttribute('aria-pressed', String(f.id === sel.f));
+    b.addEventListener('click', function () { sel.f = f.id; fiBox.querySelectorAll('.opt').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); drawPreview(); render(); });
+    fiBox.appendChild(b);
+  });
+  $('inscr').addEventListener('input', function () { drawPreview(); render(); });
+  function resetExtras() {
+    sel.f = 'plain'; $('inscr').value = '';
+    fiBox.querySelectorAll('.opt').forEach(function (x, i) { x.setAttribute('aria-pressed', String(i === 0)); });
+    drawPreview();
+  }
+
   var VIEWS = ['wall', 'place', 'plans', 'goals', 'me'];
   function show(tab) {
     VIEWS.forEach(function (k) { $('tab-' + k).hidden = k !== tab; });
@@ -517,17 +582,56 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   }
   function thud() { var w = $('wallwrap'); w.classList.remove('thud'); void w.offsetWidth; w.classList.add('thud'); }
 
+  async function celebrate(msg) {
+    await loadProfile(); await loadWall();
+    show('wall'); thud(); confetti();
+    var st = liveStreak(), m = STREAKS.filter(function (x) { return x[0] === st; })[0];
+    toast(m && !msg ? st + '-day streak! ' + m[1] + '.' : (msg || 'Brick placed. See you tomorrow!'));
+  }
+  async function fnError(err) {
+    try { var j = await err.context.json(); return j.error || j.message || err.message; } catch (e) { return err && err.message; }
+  }
+  async function verifyPayment(reference) {
+    for (var i = 0; i < 4; i++) {
+      var v = await sb.functions.invoke('payments', { body: { action: 'verify', reference: reference } });
+      if (!v.error && v.data && v.data.ok) return true;
+      await new Promise(function (r) { setTimeout(r, 2000); });
+    }
+    return false;
+  }
+  async function payForExtras() {
+    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
+    var wasPlaced = placedToday();
+    busy = true; render();
+    var r = await sb.functions.invoke('payments', { body: { action: 'create', color: sel.c, finish: sel.f, inscription: $('inscr').value.trim() } });
+    if (r.error || !r.data || !r.data.access_code) {
+      busy = false; render();
+      toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.'));
+      return;
+    }
+    var ref = r.data.reference;
+    var popup = new PaystackPop();
+    popup.resumeTransaction(r.data.access_code, {
+      onSuccess: async function () {
+        toast('Payment received. Adding your extras\u2026');
+        var ok = await verifyPayment(ref);
+        busy = false; resetExtras(); render();
+        if (ok) celebrate(wasPlaced ? 'Your brick is upgraded. Thank you!' : 'Your special brick is on the wall. Thank you!');
+        else toast('Payment received. Your brick will update in a minute or two.');
+      },
+      onCancel: function () { busy = false; render(); toast('Payment cancelled. Nothing was charged.'); },
+      onError: function (e) { busy = false; render(); toast((e && e.message) || 'The payment could not be completed.'); }
+    });
+  }
   $('placeBtn').addEventListener('click', async function () {
-    if (!user || placedToday() || busy) return;
+    if (!user || busy) return;
+    if (total()) { payForExtras(); return; }
+    if (placedToday()) return;
     busy = true; render();
     var r = await sb.rpc('place_brick', { p_color: sel.c, p_message: null });
     busy = false;
-    if (r.error) { render(); toast(r.error.message || 'Something went wrong. Try again.'); return; }
-    await loadProfile(); await loadWall();
-    show('wall'); thud();
-    var st = liveStreak(), m = STREAKS.filter(function (x) { return x[0] === st; })[0];
-    if (m) { confetti(); toast(st + '-day streak! ' + m[1] + '.'); }
-    else { confetti(); toast('Brick placed. See you tomorrow!'); }
+    if (r.error) { render(); toast(friendly(r.error.message)); return; }
+    celebrate();
   });
 
   /* ---- auth ---- */
@@ -541,7 +645,23 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     $('switchText').textContent = su ? 'Already have an account?' : 'New here?';
     $('switchBtn').textContent = su ? 'Log in' : 'Create an account';
     $('authErr').hidden = true; $('authOk').hidden = true;
+    $('forgotRow').hidden = su;
   }
+  $('showPass').addEventListener('change', function () { $('authPass').type = this.checked ? 'text' : 'password'; });
+  $('forgotBtn').addEventListener('click', async function () {
+    var email = $('authEmail').value.trim(), err = $('authErr'), ok = $('authOk'); err.hidden = true; ok.hidden = true;
+    if (!email) { err.textContent = 'Type your email above first, then tap "Forgot your password?" again.'; err.hidden = false; return; }
+    var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
+    if (r.error) { err.textContent = friendly(r.error.message); err.hidden = false; }
+    else { ok.textContent = 'Check your email for a link to choose a new password.'; ok.hidden = false; }
+  });
+  $('resetBtn').addEventListener('click', async function () {
+    var p = $('newPass').value, e = $('resetErr'); e.hidden = true;
+    if (p.length < 6) { e.textContent = 'Your password needs at least 6 characters.'; e.hidden = false; return; }
+    var r = await sb.auth.updateUser({ password: p });
+    if (r.error) { e.textContent = friendly(r.error.message); e.hidden = false; return; }
+    $('resetPanel').hidden = true; toast('Password changed. You\'re logged in.'); render(); show('place');
+  });
   $('switchBtn').addEventListener('click', function () { setMode(mode === 'signup' ? 'login' : 'signup'); });
   $('authForm').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -557,16 +677,19 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       r = await sb.auth.signInWithPassword({ email: email, password: pass });
     }
     $('authBtn').disabled = false;
-    if (r.error) { err.textContent = r.error.message; err.hidden = false; }
+    if (r.error) { err.textContent = friendly(r.error.message); err.hidden = false; }
   });
   $('logout').addEventListener('click', async function () { await sb.auth.signOut(); toast('Logged out.'); show('wall'); });
   $('saveName').addEventListener('click', async function () {
     var n = $('nameEdit').value.trim(); if (!n || !user) return;
     var r = await sb.from('profiles').update({ display_name: n }).eq('id', user.id);
-    if (r.error) toast(r.error.message); else { toast('Name saved.'); await loadProfile(); await loadWall(); }
+    if (r.error) toast(friendly(r.error.message)); else { toast('Name saved.'); await loadProfile(); await loadWall(); }
   });
 
   sb.auth.onAuthStateChange(function (event, session) {
+    if (event === 'PASSWORD_RECOVERY') {
+      setTimeout(function () { show('me'); $('authPanel').hidden = true; $('profilePanel').hidden = true; $('resetPanel').hidden = false; }, 0);
+    }
     var was = user && user.id;
     user = session ? session.user : null;
     if ((user && user.id) !== was) {
@@ -576,6 +699,31 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       }, 0);
     }
   });
+
+  /* ---- install as an app ---- */
+  var deferredPrompt = null;
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function dismissed() { try { return localStorage.getItem('db_install_hide') === '1'; } catch (e) { return false; } }
+  function showInstall(iosMode) {
+    if (standalone || dismissed()) return;
+    $('installCard').hidden = false;
+    if (iosMode) {
+      $('installText').textContent = 'On iPhone: tap the Share button (the square with an arrow) at the bottom of Safari, then tap "Add to Home Screen".';
+      $('installBtn').hidden = true;
+    }
+  }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredPrompt = e; showInstall(false); });
+  window.addEventListener('appinstalled', function () { $('installCard').hidden = true; toast('Daily Brick is on your home screen!'); });
+  $('installBtn').addEventListener('click', async function () {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    try { await deferredPrompt.userChoice; } catch (e) {}
+    deferredPrompt = null; $('installCard').hidden = true;
+  });
+  $('installClose').addEventListener('click', function () { $('installCard').hidden = true; try { localStorage.setItem('db_install_hide', '1'); } catch (e) {} });
+  if (isIOS) showInstall(true);
+  if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
 
   /* ---- start ---- */
   setMode('signup'); drawPreview(); render();
