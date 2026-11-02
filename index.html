@@ -189,6 +189,11 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 .soon { font: 600 11px/1 var(--mono); padding: 4px 7px; border-radius: 4px; background: var(--night3); color: var(--muted); }
 .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
 .tabs .in { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
+.mod .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mod .btn { min-height: 44px; font-size: 14px; }
+.btn.no { background: var(--night3); color: var(--ink); box-shadow: none; }
 </style>
 </head>
 <body>
@@ -277,7 +282,13 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <div class="opts" id="finishes"></div>
       <label class="label" for="inscr">Inscription</label>
       <input type="text" id="inscr" maxlength="12" placeholder="Initials or a short word (+R19)" autocomplete="off">
-      <div class="opt" style="opacity:.6"><span>Photo or picture on your brick</span><span class="soon">Soon</span></div>
+      <span class="label">Photo or picture</span>
+      <div class="photo-row" style="display:grid;gap:6px">
+        <label class="opt" for="photo" id="photoLabel"><span id="photoText">Add a photo or picture</span><span class="price">+R19</span></label>
+        <input type="file" id="photo" accept="image/*" class="sr">
+        <button class="btn ghost" id="photoClear" type="button" hidden>Remove photo</button>
+      </div>
+      <p class="note">Photos are checked before they appear on the wall for everyone.</p>
       <div class="total"><span id="totalLabel">Today's total</span><b id="placeTotal">Free</b></div>
       <button class="btn" id="placeBtn" type="button">Place today's brick</button>
       <p class="note" id="resetNote" style="text-align:center"></p>
@@ -293,7 +304,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
         <div class="plan"><div class="row"><h3>Builder</h3><span class="amt">Free</span></div>
           <ul><li>One brick every day</li><li>8 colours</li><li>Streaks and your spot on the wall</li></ul></div>
         <div class="plan hl"><div class="row"><h3>Brick extras</h3><span class="amt">R19 each</span></div>
-          <ul><li>Gold leaf, glazed or carved finish</li><li>Inscribe initials or a word</li><li>Upgrade today's brick even after placing it</li><li>Pay only on the days you want it (about $1)</li><li>Photos on bricks coming soon</li></ul></div>
+          <ul><li>Gold leaf, glazed or carved finish</li><li>Inscribe initials or a word</li><li>Upgrade today's brick even after placing it</li><li>Pay only on the days you want it (about $1)</li><li>Put a photo or picture on your brick</li></ul></div>
         <div class="plan"><div class="row"><h3>Business</h3><span class="soon">Coming soon</span></div>
           <ul><li>Up to 10 bricks a day</li><li>Your logo across the day's bricks</li><li>Shareable "we built this" link</li></ul></div>
         <div class="plan"><div class="row"><h3>Supporter pass</h3><span class="soon">Coming soon</span></div>
@@ -349,6 +360,10 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <button class="btn" type="button" id="saveName">Save name</button>
       <button class="btn ghost" type="button" id="logout">Log out</button>
     </div>
+    <div class="panel" id="adminPanel" hidden>
+      <div class="row"><h2>Photos to approve</h2><button class="btn ghost" type="button" id="adminRefresh" style="width:auto;min-height:0">Refresh</button></div>
+      <div id="adminList" class="opts"></div>
+    </div>
   </section>
 </main>
 
@@ -380,9 +395,9 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   var COLS = 13, BW = 80, BH = 40, ROWS = 16, SHOW = COLS * ROWS;
 
   var user = null, profile = null, bricks = [], wallTotal = 0, busy = false;
-  var sel = { c: COLORS[5].c, f: 'plain' };
+  var sel = { c: COLORS[5].c, f: 'plain', photo: null, blob: null };
   var FINISHES = [{ id: 'plain', n: 'Plain', p: 0 }, { id: 'gold', n: 'Gold leaf', p: 19 }, { id: 'glaze', n: 'Glazed', p: 19 }, { id: 'carved', n: 'Carved pattern', p: 19 }];
-  var PRICE_INS = 19;
+  var PRICE_INS = 19, PRICE_PHOTO = 19;
 
   function $(id) { return document.getElementById(id); }
   function todayUTC() { return new Date().toISOString().slice(0, 10); }
@@ -413,22 +428,40 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 
   /* ---- data ---- */
   async function loadWall() {
-    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,user_id,placed_on,profiles(display_name)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,profiles(display_name)').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
     var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
     if (!s.error && s.data) wallTotal = Number(s.data.total_bricks) || 0;
     drawWall(); stats();
   }
   async function loadProfile() {
-    if (!user) { profile = null; render(); return; }
+    if (!user) { profile = null; $('adminPanel').hidden = true; render(); return; }
     var r = await sb.from('profiles').select('*').eq('id', user.id).single();
     profile = r.error ? null : r.data;
     render();
+    if (profile && profile.is_admin && !$('tab-me').hidden) loadPending();
   }
 
   /* ---- drawing ---- */
-  function drawBrick(ctx, x, y, w, h, color, mine, finish, ins) {
+  var imgCache = {};
+  function imgFor(src) {
+    if (!imgCache[src]) { var im = new Image(); im.onload = function () { drawWall(); drawPreview(); }; im.src = src; imgCache[src] = im; }
+    return imgCache[src];
+  }
+  function photoSrc(b, mine) {
+    if (!b.photo_url) return null;
+    if (b.photo_status === 'approved' || (mine && b.photo_status === 'pending')) return sb.storage.from('brick-photos').getPublicUrl(b.photo_url).data.publicUrl;
+    return null;
+  }
+  function drawBrick(ctx, x, y, w, h, color, mine, finish, ins, photo) {
     ctx.fillStyle = finish === 'gold' ? '#d9a93b' : color; ctx.fillRect(x, y, w, h);
+    if (photo) {
+      var im = imgFor(photo);
+      if (im.complete && im.naturalWidth) {
+        var s = Math.max(w / im.naturalWidth, h / im.naturalHeight), iw = im.naturalWidth * s, ih = im.naturalHeight * s;
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.drawImage(im, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih); ctx.restore();
+      }
+    }
     if (finish === 'gold') { var g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, 'rgba(255,245,200,.55)'); g.addColorStop(.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,240,180,.35)'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); }
     if (finish === 'glaze') { ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(x + 3, y + 3, w - 6, h * .3); }
     if (finish === 'carved') { ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; for (var k = 8; k < w + 6; k += 12) { ctx.beginPath(); ctx.moveTo(x + k, y + 4); ctx.lineTo(x + k - 6, y + h - 4); ctx.stroke(); } ctx.restore(); }
@@ -446,7 +479,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     function pos(i) { var row = Math.floor(i / COLS), col = i % COLS, off = row % 2 ? 0 : BW / 2; return { x: col * BW + off - BW / 2 + 4, y: H - (row + 1) * BH }; }
     bricks.forEach(function (b, i) {
       var p = pos(i), mine = user && b.user_id === user.id;
-      drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine, b.finish, b.message);
+      drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine, b.finish, b.message, photoSrc(b, mine));
       hit.push({ x: p.x + 2, y: p.y + 2, w: BW - 4, h: BH - 4, b: b, mine: mine });
     });
     if (n < SHOW) { var f = pos(n); ctx.setLineDash([6, 5]); ctx.strokeStyle = CORAL; ctx.lineWidth = 2; ctx.strokeRect(f.x + 4, f.y + 4, BW - 8, BH - 8); ctx.setLineDash([]); }
@@ -461,12 +494,13 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     s.textContent = h.mine ? 'Your brick' : ((h.b.profiles && h.b.profiles.display_name) || 'A builder');
     tip.appendChild(s);
     var fn = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[h.b.finish];
-    tip.appendChild(document.createTextNode((fn ? ' · ' + fn : '') + (h.b.message ? ' · \u201c' + h.b.message + '\u201d' : '') + ' · placed ' + h.b.placed_on));
+    var ph = h.b.photo_status === 'approved' ? ' · Photo' : (h.mine && h.b.photo_status === 'pending') ? ' · Photo waiting for approval' : (h.mine && h.b.photo_status === 'rejected') ? ' · Photo not approved' : '';
+    tip.appendChild(document.createTextNode((fn ? ' · ' + fn : '') + (h.b.message ? ' · \u201c' + h.b.message + '\u201d' : '') + ph + ' · placed ' + h.b.placed_on));
     tip.hidden = false;
   });
   function drawPreview() {
     var cv = $('prev'), ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
-    drawBrick(ctx, 8, 12, 224, 88, sel.c, false, sel.f, $('inscr').value.trim());
+    drawBrick(ctx, 8, 12, 224, 88, sel.c, false, sel.f, $('inscr').value.trim(), sel.photo);
   }
 
   /* ---- stats and milestones ---- */
@@ -541,7 +575,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   });
 
   function total() {
-    var f = FINISHES.filter(function (x) { return x.id === sel.f; })[0].p + ($('inscr').value.trim() ? PRICE_INS : 0);
+    var f = FINISHES.filter(function (x) { return x.id === sel.f; })[0].p + ($('inscr').value.trim() ? PRICE_INS : 0) + (sel.photo ? PRICE_PHOTO : 0);
     $('placeTotal').textContent = f ? 'R' + f + '.00' : 'Free';
     return f;
   }
@@ -554,8 +588,30 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     fiBox.appendChild(b);
   });
   $('inscr').addEventListener('input', function () { drawPreview(); render(); });
+  function setPhoto(src, blob) {
+    sel.photo = src || null; sel.blob = blob || null; $('photoLabel').classList.toggle('has', !!src);
+    $('photoText').textContent = src ? 'Photo added \u00b7 tap to change' : 'Add a photo or picture';
+    $('photoClear').hidden = !src; drawPreview(); render();
+  }
+  $('photo').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0]; if (!file) return;
+    if (!/^image\//.test(file.type)) { toast('Choose an image file, like a JPG or PNG.'); return; }
+    if (file.size > 15 * 1024 * 1024) { toast('That picture is too big. Choose one under 15 MB.'); return; }
+    var url = URL.createObjectURL(file), im = new Image();
+    im.onload = function () {
+      var W = 320, H = 160, c = document.createElement('canvas'); c.width = W; c.height = H; var x = c.getContext('2d');
+      var s = Math.max(W / im.naturalWidth, H / im.naturalHeight);
+      x.drawImage(im, (W - im.naturalWidth * s) / 2, (H - im.naturalHeight * s) / 2, im.naturalWidth * s, im.naturalHeight * s);
+      URL.revokeObjectURL(url);
+      var dataUrl = c.toDataURL('image/jpeg', .8);
+      c.toBlob(function (blob) { setPhoto(dataUrl, blob); }, 'image/jpeg', .8);
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); toast('That image could not be opened. Try another one.'); };
+    im.src = url; e.target.value = '';
+  });
+  $('photoClear').addEventListener('click', function () { setPhoto(null, null); });
   function resetExtras() {
-    sel.f = 'plain'; $('inscr').value = '';
+    sel.f = 'plain'; $('inscr').value = ''; setPhoto(null, null);
     fiBox.querySelectorAll('.opt').forEach(function (x, i) { x.setAttribute('aria-pressed', String(i === 0)); });
     drawPreview();
   }
@@ -564,7 +620,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   function show(tab) {
     VIEWS.forEach(function (k) { $('tab-' + k).hidden = k !== tab; });
     document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab)); });
-    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview();
+    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') loadPending();
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
@@ -601,9 +657,14 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   }
   async function payForExtras() {
     if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
-    var wasPlaced = placedToday();
+    var wasPlaced = placedToday(), hadPhoto = !!sel.blob, photoPath = null;
     busy = true; render();
-    var r = await sb.functions.invoke('smooth-action', { body: { action: 'create', color: sel.c, finish: sel.f, inscription: $('inscr').value.trim() } });
+    if (sel.blob) {
+      photoPath = user.id + '/' + crypto.randomUUID() + '.jpg';
+      var up = await sb.storage.from('brick-photos').upload(photoPath, sel.blob, { contentType: 'image/jpeg' });
+      if (up.error) { busy = false; render(); toast('Your photo could not be uploaded. Check your connection and try again.'); return; }
+    }
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'create', color: sel.c, finish: sel.f, inscription: $('inscr').value.trim(), photo_path: photoPath } });
     if (r.error || !r.data || !r.data.access_code) {
       busy = false; render();
       toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.'));
@@ -616,7 +677,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
         toast('Payment received. Adding your extras\u2026');
         var ok = await verifyPayment(ref);
         busy = false; resetExtras(); render();
-        if (ok) celebrate(wasPlaced ? 'Your brick is upgraded. Thank you!' : 'Your special brick is on the wall. Thank you!');
+        if (ok) celebrate(hadPhoto ? 'Thank you! Everyone will see your photo once it is approved.' : wasPlaced ? 'Your brick is upgraded. Thank you!' : 'Your special brick is on the wall. Thank you!');
         else toast('Payment received. Your brick will update in a minute or two.');
       },
       onCancel: function () { busy = false; render(); toast('Payment cancelled. Nothing was charged.'); },
@@ -699,6 +760,32 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       }, 0);
     }
   });
+
+  /* ---- photo approvals (admins only) ---- */
+  async function loadPending() {
+    if (!profile || !profile.is_admin) { $('adminPanel').hidden = true; return; }
+    $('adminPanel').hidden = false;
+    var r = await sb.from('bricks').select('id,photo_url,placed_on,profiles(display_name)').eq('photo_status', 'pending').order('id', { ascending: true }).limit(30);
+    var list = $('adminList'); list.innerHTML = '';
+    if (r.error) { list.textContent = friendly(r.error.message); return; }
+    if (!r.data.length) { var p = document.createElement('p'); p.className = 'muted'; p.textContent = 'No photos waiting. Nice work.'; list.appendChild(p); return; }
+    r.data.forEach(function (b) {
+      var d = document.createElement('div'); d.className = 'mod';
+      d.innerHTML = '<img alt="Photo waiting for approval"><span class="note"></span><div class="acts"><button class="btn" type="button">Approve</button><button class="btn no" type="button">Reject</button></div>';
+      d.querySelector('img').src = sb.storage.from('brick-photos').getPublicUrl(b.photo_url).data.publicUrl;
+      d.querySelector('.note').textContent = ((b.profiles && b.profiles.display_name) || 'A builder') + ' \u00b7 ' + b.placed_on;
+      var bt = d.querySelectorAll('button');
+      bt[0].addEventListener('click', function () { moderate(b.id, true); });
+      bt[1].addEventListener('click', function () { moderate(b.id, false); });
+      list.appendChild(d);
+    });
+  }
+  async function moderate(id, ok) {
+    var r = await sb.rpc('moderate_photo', { p_brick: id, p_approve: ok });
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    toast(ok ? 'Photo approved.' : 'Photo rejected.'); loadPending(); loadWall();
+  }
+  $('adminRefresh').addEventListener('click', loadPending);
 
   /* ---- install as an app ---- */
   var deferredPrompt = null;
