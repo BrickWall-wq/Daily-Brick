@@ -260,6 +260,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 .w3d-bar button svg { width: 20px; height: 20px; }
 .w3d-bar button.go { background: var(--coral); color: var(--coral-ink); }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.mod a { color: var(--mint); word-break: break-all; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
 .mod .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .mod .btn { min-height: 44px; font-size: 14px; }
@@ -397,7 +398,10 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
             <div class="logo-box"><img id="bizLogoImg" alt="Your logo" hidden><span class="note" id="bizLogoStatus">No logo yet.</span></div>
             <label class="opt" for="bizLogo"><span id="bizLogoText">Choose a logo picture</span><span class="price">Included</span></label>
             <input type="file" id="bizLogo" accept="image/*" class="sr">
-            <button class="btn" type="button" id="bizSave">Save name and logo</button>
+            <label class="label" for="bizWeb">Website (optional)</label>
+            <input type="text" id="bizWeb" maxlength="200" placeholder="yourbusiness.co.za" autocomplete="url" inputmode="url">
+            <p class="note" id="bizWebStatus">People who tap your logo on the wall get a button to visit it.</p>
+            <button class="btn" type="button" id="bizSave">Save business details</button>
             <button class="btn ghost" type="button" id="bizRenew">Add 30 more days for R89</button>
           </div>
         </div>
@@ -639,7 +643,9 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 
   /* ---- data ---- */
   async function loadWall() {
-    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles!user_id(display_name,business_name,logo_url,logo_status,longest_streak,supporter_until)').order('id', { ascending: false }).limit(SHOW);
+    var cols = 'id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles!user_id(display_name,business_name,logo_url,logo_status,longest_streak,supporter_until';
+    var r = await sb.from('bricks').select(cols + ',website,website_status)').order('id', { ascending: false }).limit(SHOW);
+    if (r.error) r = await sb.from('bricks').select(cols + ')').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
     var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
     if (!s.error && s.data) wallTotal = Number(s.data.total_bricks) || 0;
@@ -755,6 +761,10 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var acts = document.createElement('div'); acts.className = 'tip-acts';
     function act(label, fnc) { var bt = document.createElement('button'); bt.type = 'button'; bt.textContent = label; bt.addEventListener('click', function (ev) { ev.stopPropagation(); fnc(); }); acts.appendChild(bt); }
     var bid = h.b.id;
+    if (h.b.biz && pr.website && pr.website_status === 'approved' && /^https?:\/\//i.test(pr.website)) {
+      var site = pr.website;
+      act('Visit website \u2197', function () { window.open(site, '_blank', 'noopener,noreferrer'); });
+    }
     if (profile && profile.is_admin) {
       if (h.b.message) act('Remove writing', function () { adminBrick(bid, 'clear_message'); });
       if (h.b.photo_url && h.b.photo_status !== 'rejected') act('Hide photo', function () { adminBrick(bid, 'hide_photo'); });
@@ -1030,6 +1040,9 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var until = new Date(profile.business_until);
     $('bizActive').textContent = 'Active until ' + until.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
     if (document.activeElement !== $('bizNameEdit')) $('bizNameEdit').value = profile.business_name || '';
+    if (document.activeElement !== $('bizWeb')) $('bizWeb').value = profile.website || '';
+    $('bizWebStatus').textContent = !profile.website ? 'People who tap your logo on the wall get a button to visit it.'
+      : ({ pending: 'Waiting for approval. The button shows once it is approved.', approved: 'Approved. People can tap your logo to visit it.', rejected: 'Not approved. Please check the address.' }[profile.website_status] || '');
     if (!logoBlob) {
       var st = { pending: 'Waiting for approval. Only you can see it on the wall for now.', approved: 'Approved. Showing on the wall.', rejected: 'Not approved. Please choose a different logo.' }[profile.logo_status];
       $('bizLogoStatus').textContent = profile.logo_url ? (st || '') : 'No logo yet.';
@@ -1062,13 +1075,15 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     if (logoBlob) {
       path = user.id + '/logo-' + crypto.randomUUID() + '.jpg';
       var up = await sb.storage.from('brick-photos').upload(path, logoBlob, { contentType: 'image/jpeg' });
-      if (up.error) { btn.disabled = false; btn.textContent = 'Save name and logo'; toast('Your logo could not be uploaded. Try again.'); return; }
+      if (up.error) { btn.disabled = false; btn.textContent = 'Save business details'; toast('Your logo could not be uploaded. Try again.'); return; }
     }
     var r = await sb.rpc('set_business_profile', { p_name: name, p_logo_path: path });
-    btn.disabled = false; btn.textContent = 'Save name and logo';
+    var web = $('bizWeb').value.trim(), webChanged = web !== ((profile && profile.website) || '');
+    if (!r.error && webChanged) { var rw = await sb.rpc('set_business_website', { p_url: web }); if (rw.error) r = rw; }
+    btn.disabled = false; btn.textContent = 'Save business details';
     if (r.error) { toast(friendly(r.error.message)); return; }
     logoBlob = null; $('bizLogoText').textContent = 'Choose a logo picture';
-    toast(path ? 'Saved. Your logo will show for everyone once it is approved.' : 'Business name saved.');
+    toast(path || (webChanged && web) ? 'Saved. New logos and websites show for everyone once they are approved.' : 'Business details saved.');
     await loadProfile(); await loadWall();
   });
 
@@ -1303,6 +1318,17 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       bt[1].addEventListener('click', function () { moderateLogo(p.id, false); });
       list.appendChild(d);
     });
+    var wb = await sb.from('profiles').select('id,business_name,website').eq('website_status', 'pending').limit(30);
+    (wb.data || []).forEach(function (p) {
+      var d = document.createElement('div'); d.className = 'mod';
+      d.innerHTML = '<span class="label">Business website</span><span class="note"></span><a target="_blank" rel="noopener noreferrer"></a><div class="acts"><button class="btn" type="button">Approve website</button><button class="btn no" type="button">Reject</button></div>';
+      d.querySelector('.note').textContent = (p.business_name || 'Business') + ' wants this link on its logo. Open it and check it first:';
+      var a = d.querySelector('a'); a.textContent = p.website; if (/^https?:\/\//i.test(p.website)) a.href = p.website;
+      var bt = d.querySelectorAll('button');
+      bt[0].addEventListener('click', function () { moderateWebsite(p.id, true); });
+      bt[1].addEventListener('click', function () { moderateWebsite(p.id, false); });
+      list.appendChild(d);
+    });
     var rp = await sb.rpc('admin_reports');
     (rp.data || []).forEach(function (b) {
       var d = document.createElement('div'); d.className = 'mod';
@@ -1318,7 +1344,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       add('Keep it', 'dismiss', 'no');
       list.appendChild(d);
     });
-    if (!r.data.length && !(lg.data || []).length && !(rp.data || []).length) { var p = document.createElement('p'); p.className = 'muted'; p.textContent = 'Nothing waiting. Nice work.'; list.appendChild(p); return; }
+    if (!r.data.length && !(lg.data || []).length && !(wb.data || []).length && !(rp.data || []).length) { var p = document.createElement('p'); p.className = 'muted'; p.textContent = 'Nothing waiting. Nice work.'; list.appendChild(p); return; }
     r.data.forEach(function (b) {
       var d = document.createElement('div'); d.className = 'mod';
       d.innerHTML = '<img alt="Photo waiting for approval"><span class="note"></span><div class="acts"><button class="btn" type="button">Approve</button><button class="btn no" type="button">Reject</button></div>';
@@ -1346,6 +1372,11 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var r = await sb.rpc('moderate_logo', { p_user: id, p_approve: ok });
     if (r.error) { toast(friendly(r.error.message)); return; }
     toast(ok ? 'Logo approved.' : 'Logo rejected.'); loadPending(); loadWall();
+  }
+  async function moderateWebsite(id, ok) {
+    var r = await sb.rpc('moderate_website', { p_user: id, p_approve: ok });
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    toast(ok ? 'Website approved.' : 'Website rejected.'); loadPending(); loadWall();
   }
   $('adminRefresh').addEventListener('click', loadPending);
 
@@ -1550,7 +1581,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   var w3dScript = null;
   function load3d() {
     if (window.DailyBrick3D) return Promise.resolve();
-    if (!w3dScript) w3dScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/wall3d.js?v=1'; s.onload = res; s.onerror = function () { w3dScript = null; rej(new Error('load')); }; document.head.appendChild(s); });
+    if (!w3dScript) w3dScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/wall3d.js?v=2'; s.onload = res; s.onerror = function () { w3dScript = null; rej(new Error('load')); }; document.head.appendChild(s); });
     return w3dScript;
   }
   function open3d() {
