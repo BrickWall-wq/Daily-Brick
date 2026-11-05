@@ -2,11 +2,13 @@
    Loaded only when someone taps "3D view" on the Wall screen, so the app stays light for everyone else.
    It reads the real bricks from Supabase and lays them in order, like a real builder:
    one course at a time along a section of 20 bricks, bottom course first; when a section is full height the next starts.
-   Each day a business builds, its bricks form a round emblem with its logo, set into the wall (as many as fit side by side). */
+   Each day a business builds, its bricks form a round emblem with its logo, set into the wall (as many as fit side by side).
+   Photos and writing show on the faces of the bricks, the same as on the flat wall. */
 (function () {
   var THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
   var ORBIT_URL = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
   var MAX_BRICKS = 30000;
+  var MAX_FACES = 960;      // bricks with a photo or writing drawn on their faces (newest first, photos before writing)
 
   function loadScript(src) {
     return new Promise(function (res, rej) {
@@ -102,7 +104,7 @@
   function fetchAll(sb) {
     var rows = [], page = 1000;
     function more(from) {
-      return sb.from('bricks').select('id,color,finish,message,user_id,placed_on,biz').order('id', { ascending: true }).range(from, from + page - 1).then(function (r) {
+      return sb.from('bricks').select('id,color,finish,message,photo_url,photo_status,user_id,placed_on,biz').order('id', { ascending: true }).range(from, from + page - 1).then(function (r) {
         if (r.error) throw r.error;
         rows = rows.concat(r.data || []);
         if ((r.data || []).length === page && rows.length < MAX_BRICKS) return more(from + page);
@@ -115,13 +117,14 @@
       var chunks = []; for (var i = 0; i < list.length; i += 200) chunks.push(list.slice(i, i + 200));
       return Promise.all(chunks.map(function (ch) {
         return sb.from('profiles').select('id,display_name,business_name,logo_url,logo_status').in('id', ch).then(function (r) { (r.data || []).forEach(function (p) { out[p.id] = p; }); });
-      })).then(function () { return { bricks: bricks, profiles: out, logoUrl: function (path) { return sb.storage.from('brick-photos').getPublicUrl(path).data.publicUrl; } }; });
+      })).then(function () { return { bricks: bricks, profiles: out, photoUrl: function (path) { return sb.storage.from('brick-photos').getPublicUrl(path).data.publicUrl; }, logoUrl: function (path) { return sb.storage.from('brick-photos').getPublicUrl(path).data.publicUrl; } }; });
     });
   }
 
   function close() {
     if (!state) return;
     state.stop = true;
+    try { (state.faceMats || []).forEach(function (m) { m.map.dispose(); m.dispose(); }); } catch (e) {}
     try { state.renderer.dispose(); state.renderer.forceContextLoss(); } catch (e) {}
     if (state.renderer.domElement.parentNode) state.renderer.domElement.parentNode.removeChild(state.renderer.domElement);
     window.removeEventListener('resize', state.resize);
@@ -233,11 +236,11 @@
     var bricks = new THREE.InstancedMesh(new THREE.BoxGeometry(BL, BH - 0.05, BD), new THREE.MeshPhongMaterial({ color: 0xffffff, map: brickTex, bumpMap: brickTex, bumpScale: 0.018, shininess: 4, specular: 0x111111 }), count);
     bricks.castShadow = true; bricks.receiveShadow = true; scene.add(bricks);
     var dummy = new THREE.Object3D(), col = new THREE.Color();
-    var mine = [];
+    var mine = [], tints = [];
     L.bricks.forEach(function (s, i) {
       var j = ((s.b.id * 9301 + 49297) % 233280) / 233280;
       dummy.position.set(s.x, s.y, 0); dummy.rotation.set(0, (j - .5) * 0.014, 0); dummy.updateMatrix(); bricks.setMatrixAt(i, dummy.matrix);
-      col.set(s.b.finish === 'gold' ? '#d9a93b' : (s.b.color || '#c9a27e')).multiplyScalar(0.9 + j * 0.18); bricks.setColorAt(i, col);
+      col.set(s.b.finish === 'gold' ? '#d9a93b' : (s.b.color || '#c9a27e')).multiplyScalar(0.9 + j * 0.18); bricks.setColorAt(i, col); tints[i] = '#' + col.getHexString();
       if (me && s.b.user_id === me) mine.push(i);
     });
     if (!L.bricks.length) bricks.count = 0;
@@ -337,6 +340,69 @@
       scene.add(g);
     });
 
+    /* photos and writing on the brick faces */
+    function photoOf(b) {
+      if (!b.photo_url) return null;
+      if (b.photo_status === 'approved' || (me && b.user_id === me && b.photo_status === 'pending')) return data.photoUrl(b.photo_url);
+      return null;
+    }
+    var faceMats = [];
+    (function () {
+      var withPhoto = [], withText = [];
+      L.bricks.forEach(function (s, i) { if (photoOf(s.b)) withPhoto.push(i); else if (s.b.message) withText.push(i); });
+      var pick = withPhoto.slice(-Math.round(MAX_FACES / 2));
+      pick = pick.concat(withText.slice(-(MAX_FACES - pick.length))).sort(function (a, b) { return a - b; });
+      if (!pick.length) return;
+      var A = 2048, CW = 192, CH = 84, COLS = Math.floor(A / CW), PER = COLS * Math.floor(A / CH);
+      var FW = BL - 0.04, FH = BH - 0.09, FZ = BD / 2 + 0.008, v = new THREE.Vector3();
+      function drawCell(g, cx, cy, s, img) {
+        var b = s.b, gold = b.finish === 'gold';
+        g.save(); g.beginPath(); g.rect(cx, cy, CW, CH); g.clip();
+        g.fillStyle = gold ? '#d9a93b' : tints[s.idx]; g.fillRect(cx, cy, CW, CH);
+        if (img) { var k = Math.max(CW / img.width, CH / img.height), iw = img.width * k, ih = img.height * k; g.drawImage(img, cx + (CW - iw) / 2, cy + (CH - ih) / 2, iw, ih); }
+        if (gold) { var gr = g.createLinearGradient(cx, cy, cx + CW, cy + CH); gr.addColorStop(0, 'rgba(255,245,200,.5)'); gr.addColorStop(.5, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(255,240,180,.3)'); g.fillStyle = gr; g.fillRect(cx, cy, CW, CH); }
+        g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(cx, cy + CH - 5, CW, 5);
+        if (b.message) {
+          g.font = '700 34px Figtree, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineJoin = 'round';
+          g.strokeText(b.message, cx + CW / 2, cy + CH / 2, CW - 14); g.fillStyle = 'rgba(255,255,255,.95)'; g.fillText(b.message, cx + CW / 2, cy + CH / 2, CW - 14);
+        }
+        g.restore();
+      }
+      for (var a0 = 0; a0 < pick.length; a0 += PER) (function (list) {
+        var cv = document.createElement('canvas'); cv.width = cv.height = A; var g = cv.getContext('2d');
+        var tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
+        var mat = new THREE.MeshLambertMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        faceMats.push(mat);
+        var pos = [], uv = [], idx = [];
+        list.forEach(function (i, n) {
+          var s = L.bricks[i]; s.idx = i;
+          var cx = (n % COLS) * CW, cy = Math.floor(n / COLS) * CH;
+          drawCell(g, cx, cy, s, null);
+          var src = photoOf(s.b);
+          if (src) {
+            var im = new Image(); im.crossOrigin = 'anonymous';
+            im.onload = function () { if (!state) return; try { drawCell(g, cx, cy, s, im); tex.needsUpdate = true; } catch (e) {} };
+            im.src = src;
+          }
+          var u0 = (cx + 2) / A, u1 = (cx + CW - 2) / A, v1 = 1 - (cy + 2) / A, v0 = 1 - (cy + CH - 2) / A;
+          bricks.getMatrixAt(i, dummy.matrix);
+          [1, -1].forEach(function (side) {
+            var base = pos.length / 3;
+            // corners: bottom-left, bottom-right, top-right, top-left as seen from that side
+            [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (c) { v.set(c[0] * side * FW / 2, c[1] * FH / 2, side * FZ).applyMatrix4(dummy.matrix); pos.push(v.x, v.y, v.z); });
+            uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
+            idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+          });
+        });
+        var geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
+        var faces = new THREE.Mesh(geo, mat); faces.receiveShadow = true; scene.add(faces);
+      })(pick.slice(a0, a0 + PER));
+    })();
+
+    state.faceMats = faceMats;
+
     /* your bricks: outline + pin (the latest 12) */
     var pinGeo = new THREE.ConeGeometry(0.3, 0.9, 16), pinMat = new THREE.MeshBasicMaterial({ color: 0xff9a62 });
     var outlineGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(BL + 0.08, BH + 0.02, BD + 0.08)), outlineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
@@ -361,7 +427,7 @@
     camera.position.copy(OVERVIEW.pos).add(new THREE.Vector3(30, 60, 90)); controls.target.copy(OVERVIEW.target);
     var tween = null, fly = null, mineIdx = -1, bizIdx = -1, tmp = new THREE.Vector3();
     function goTo(pos, target, dur) { fly = null; tween = { fromP: camera.position.clone(), toP: pos.clone(), fromT: controls.target.clone(), toT: target.clone(), t: 0, dur: reduced ? 0.01 : (dur || 1.6) }; }
-    function showTip(html) { tip.innerHTML = html; tip.hidden = false; clearTimeout(showTip.t); showTip.t = setTimeout(function () { tip.hidden = true; }, 5000); }
+    function showTip(html, ms) { tip.innerHTML = html; tip.hidden = false; clearTimeout(showTip.t); showTip.t = setTimeout(function () { tip.hidden = true; }, ms || 5000); }
     function esc(s) { return String(s).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
     goTo(OVERVIEW.pos, OVERVIEW.target, 2.6);
 
@@ -393,8 +459,9 @@
       if (!hit) { tip.hidden = true; return; }
       if (hit.object.userData.emb) { var e = hit.object.userData.emb; showTip('<strong>' + esc(e.name) + '</strong> (business) · ' + e.count + ' bricks on ' + esc(e.day)); return; }
       var s = L.bricks[hit.instanceId]; if (!s) return;
-      var p = data.profiles[s.b.user_id] || {}, fin = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[s.b.finish];
-      showTip('<strong>' + (me && s.b.user_id === me ? 'Your brick' : esc(p.display_name || 'A builder')) + '</strong>' + (fin ? ' · ' + fin : '') + (s.b.message ? ' · “' + esc(s.b.message) + '”' : '') + ' · placed ' + esc(s.b.placed_on));
+      var ph = photoOf(s.b), p = data.profiles[s.b.user_id] || {}, fin = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[s.b.finish];
+      showTip('<strong>' + (me && s.b.user_id === me ? 'Your brick' : esc(p.display_name || 'A builder')) + '</strong>' + (fin ? ' · ' + fin : '') + (s.b.message ? ' · “' + esc(s.b.message) + '”' : '') + ' · placed ' + esc(s.b.placed_on)
+        + (ph ? (s.b.photo_status === 'pending' ? ' · photo waiting for approval' : '') + '<img src="' + esc(ph) + '" alt="Photo on this brick" style="display:block;width:100%;max-height:38vh;object-fit:cover;border-radius:8px;margin-top:8px">' : ''), ph ? 9000 : 5000);
     });
 
     state.resize = function () { var w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w < h ? 62 : 48; camera.updateProjectionMatrix(); };
