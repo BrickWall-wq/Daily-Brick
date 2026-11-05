@@ -194,6 +194,32 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 .rewards { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--mortar); }
 .logo-box { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--mortar); }
 .logo-box img { height: 44px; width: auto; max-width: 50%; border-radius: 4px; background: #fff; }
+.hero-num { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--mortar); }
+.hero-num > b { font: 800 40px/1 var(--display); color: var(--coral); font-variant-numeric: tabular-nums; }
+.split { display: flex; height: 10px; gap: 2px; border-radius: 4px; overflow: hidden; background: var(--night3); }
+.split i { display: block; min-width: 4px; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 560px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tile { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; text-align: left; background: transparent; color: var(--ink); }
+.tile b { font: 700 24px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+.tile .sub { font-size: 12.5px; color: var(--muted); }
+.tile.warn { border-color: var(--coral); }
+.tile:last-child { grid-column: 1 / -1; }
+.chartbox { display: grid; gap: 8px; }
+.bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--line); }
+.bars button { flex: 1 1 0; min-width: 0; height: 100%; padding: 0; border: 0; background: none; display: flex; align-items: flex-end; }
+.bars button i { display: block; width: 100%; background: var(--coral); border-radius: 4px 4px 0 0; min-height: 2px; }
+.bars button[aria-pressed="true"] i { background: var(--mint); }
+.bars button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.axis { display: flex; justify-content: space-between; font: 11px/1 var(--mono); color: var(--muted); }
+.tblwrap { overflow-x: auto; }
+.tblwrap table { width: 100%; border-collapse: collapse; font: 12.5px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+.tblwrap th, .tblwrap td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+.tblwrap th:first-child, .tblwrap td:first-child { text-align: left; }
+.pay { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.pay:last-child { border-bottom: 0; }
+.pay .amt { font: 600 14px/1.4 var(--mono); text-align: right; }
+.pay .note { grid-column: 1 / -1; }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
 .mod .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -402,6 +428,29 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <button class="btn" type="button" id="saveName">Save name</button>
       <button class="btn ghost" type="button" id="logout">Log out</button>
     </div>
+    <div class="panel" id="ownerPanel" hidden>
+      <div class="row"><h2>Owner dashboard</h2><button class="btn ghost" type="button" id="ownerRefresh" style="width:auto;min-height:0">Refresh</button></div>
+      <div class="hero-num">
+        <span class="label">Income, last 30 days</span>
+        <b id="oIncome30">R0</b>
+        <div class="meta"><span>Today <strong id="oIncomeToday">R0</strong></span><span>7 days <strong id="oIncome7">R0</strong></span><span>All time <strong id="oIncomeAll">R0</strong></span></div>
+        <div class="split" id="oSplit"></div>
+        <p class="note" id="oTest"></p>
+      </div>
+      <div class="tiles" id="oTiles"></div>
+      <div class="chartbox">
+        <div class="row"><h3>Builders per day</h3><span class="note">Last 14 days</span></div>
+        <div class="bars" id="oBars" role="img" aria-label="Builders per day for the last 14 days"></div>
+        <div class="axis" id="oAxis"></div>
+        <p class="note" id="oBarTip">Tap a bar to see that day.</p>
+        <details><summary class="note">Show as a table</summary><div class="tblwrap"><table id="oTable"></table></div></details>
+      </div>
+      <div class="opts">
+        <h3>Latest payments</h3>
+        <div id="oRecent"></div>
+      </div>
+      <p class="note" id="oUpdated"></p>
+    </div>
     <div class="panel" id="adminPanel" hidden>
       <div class="row"><h2>Photos and logos to approve</h2><button class="btn ghost" type="button" id="adminRefresh" style="width:auto;min-height:0">Refresh</button></div>
       <div id="adminList" class="opts"></div>
@@ -494,13 +543,13 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     drawWall(); stats();
   }
   async function loadProfile() {
-    if (!user) { profile = null; $('adminPanel').hidden = true; render(); return; }
+    if (!user) { profile = null; $('adminPanel').hidden = true; $('ownerPanel').hidden = true; render(); return; }
     var r = await sb.from('profiles').select('*').eq('id', user.id).single();
     profile = r.error ? null : r.data;
     var c = await sb.from('bricks').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('placed_on', todayUTC());
     todayCount = c.error ? (profile && profile.last_brick_date === todayUTC() ? 1 : 0) : (c.count || 0);
     render(); renderBiz();
-    if (profile && profile.is_admin && !$('tab-me').hidden) loadPending();
+    if (profile && profile.is_admin && !$('tab-me').hidden) { loadPending(); loadOwner(); }
   }
 
   /* ---- drawing ---- */
@@ -754,7 +803,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   function show(tab) {
     VIEWS.forEach(function (k) { $('tab-' + k).hidden = k !== tab; });
     document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab)); });
-    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); }
+    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); loadOwner(); }
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
@@ -1014,6 +1063,82 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       }, 0);
     }
   });
+
+  /* ---- owner dashboard (admins only) ---- */
+  function rands(c) { return 'R' + Math.round((c || 0) / 100).toLocaleString('en-ZA'); }
+  function shortDay(d) { return new Date(d + 'T00:00:00Z').toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }); }
+  var KIND = { extras: 'Brick extras', business: 'Business plan', freeze: 'Streak freeze' };
+  async function loadOwner() {
+    if (!profile || !profile.is_admin) { $('ownerPanel').hidden = true; return; }
+    $('ownerPanel').hidden = false;
+    var r = await sb.rpc('owner_stats');
+    if (r.error || !r.data) { $('oUpdated').textContent = friendly(r.error ? r.error.message : 'Could not load the numbers.'); return; }
+    var s = r.data, inc = s.income || {};
+    $('oIncome30').textContent = rands(inc.d30);
+    $('oIncomeToday').textContent = rands(inc.today); $('oIncome7').textContent = rands(inc.d7); $('oIncomeAll').textContent = rands(inc.all);
+    var parts = [['Extras', inc.extras, 'var(--coral)'], ['Business', inc.business, 'var(--mint)'], ['Freezes', inc.freeze, '#d9a93b']];
+    var sp = $('oSplit'); sp.innerHTML = '';
+    var sum = (inc.extras || 0) + (inc.business || 0) + (inc.freeze || 0);
+    sp.hidden = !sum;
+    parts.forEach(function (p) { if (!p[1]) return; var i = document.createElement('i'); i.style.flex = String(p[1]); i.style.background = p[2]; i.title = p[0] + ' ' + rands(p[1]); sp.appendChild(i); });
+    $('oTest').textContent = (sum ? 'All time: ' + parts.filter(function (p) { return p[1]; }).map(function (p) { return p[0] + ' ' + rands(p[1]); }).join(' \u00b7 ') + '. ' : 'No real payments yet. ') +
+      (s.test_orders ? s.test_orders + ' test payment' + (s.test_orders === 1 ? '' : 's') + ' (' + rands(s.test_income) + ') not counted.' : '');
+    var pend = (s.pending_photos || 0) + (s.pending_logos || 0);
+    var tiles = [
+      ['Users', fmt(s.users), '+' + fmt(s.users_today) + ' today \u00b7 +' + fmt(s.users_7d) + ' this week'],
+      ['Built today', fmt(s.builders_today), fmt(s.bricks_today) + ' bricks placed'],
+      ['Wall total', fmt(s.wall_total), 'bricks on the wall'],
+      ['Streaks of 7+', fmt(s.streaks_7plus), 'best ever: ' + fmt(s.best_streak) + ' days'],
+      ['Reminders on', fmt(s.reminders_on), 'people get daily reminders'],
+      ['Businesses', fmt(s.businesses_active), 'active plans'],
+      ['To approve', fmt(pend), fmt(s.pending_photos) + ' photos \u00b7 ' + fmt(s.pending_logos) + ' logos', pend > 0]
+    ];
+    var tb = $('oTiles'); tb.innerHTML = '';
+    tiles.forEach(function (x) {
+      var d = document.createElement(x[3] !== undefined ? 'button' : 'div');
+      d.className = 'tile' + (x[3] ? ' warn' : '');
+      if (x[3] !== undefined) { d.type = 'button'; d.addEventListener('click', function () { $('adminPanel').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); }); }
+      d.innerHTML = '<span class="label"></span><b></b><span class="sub"></span>';
+      d.children[0].textContent = x[0]; d.children[1].textContent = x[1]; d.children[2].textContent = x[2];
+      tb.appendChild(d);
+    });
+    var days = s.days || [], max = Math.max(1, Math.max.apply(null, days.map(function (d) { return d.builders; })));
+    var bars = $('oBars'); bars.innerHTML = '';
+    function tip(d, btn) {
+      bars.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b === btn)); });
+      $('oBarTip').textContent = shortDay(d.day) + ': ' + fmt(d.builders) + ' builders, ' + fmt(d.bricks) + ' bricks, ' + fmt(d.signups) + ' new users';
+    }
+    days.forEach(function (d) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.setAttribute('aria-label', shortDay(d.day) + ': ' + d.builders + ' builders');
+      var i = document.createElement('i'); i.style.height = (d.builders / max * 100) + '%'; b.appendChild(i);
+      b.addEventListener('click', function () { tip(d, b); });
+      b.addEventListener('mouseenter', function () { tip(d, b); });
+      bars.appendChild(b);
+    });
+    var ax = $('oAxis'); ax.innerHTML = '';
+    if (days.length) [days[0], days[Math.floor(days.length / 2)], days[days.length - 1]].forEach(function (d, k) { var sEl = document.createElement('span'); sEl.textContent = k === 2 ? 'Today' : shortDay(d.day); ax.appendChild(sEl); });
+    var tbl = $('oTable'); tbl.innerHTML = '<thead><tr><th>Day</th><th>Builders</th><th>Bricks</th><th>New users</th></tr></thead><tbody></tbody>';
+    days.slice().reverse().forEach(function (d) {
+      var tr = document.createElement('tr');
+      [shortDay(d.day), fmt(d.builders), fmt(d.bricks), fmt(d.signups)].forEach(function (v) { var td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
+      tbl.tBodies[0].appendChild(tr);
+    });
+    var rc = $('oRecent'); rc.innerHTML = '';
+    if (!(s.recent || []).length) { var p = document.createElement('p'); p.className = 'note'; p.textContent = 'No payments yet.'; rc.appendChild(p); }
+    (s.recent || []).forEach(function (o) {
+      var d = document.createElement('div'); d.className = 'pay';
+      d.innerHTML = '<span></span><span class="amt"></span><span class="note"></span>';
+      var what = KIND[o.kind] || o.kind;
+      if (o.kind === 'extras') { var bits = []; var fn = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[o.finish]; if (fn) bits.push(fn); if (o.photo) bits.push('photo'); if (bits.length) what += ': ' + bits.join(' + '); }
+      d.children[0].textContent = what;
+      d.children[1].textContent = rands(o.amount) + (o.live ? '' : ' (test)');
+      d.children[2].textContent = (o.business_name || o.display_name || 'A builder') + ' \u00b7 ' + new Date(o.paid_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      rc.appendChild(d);
+    });
+    $('oUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '. Days run from 02:00 to 02:00 South African time.';
+  }
+  $('ownerRefresh').addEventListener('click', loadOwner);
 
   /* ---- photo approvals (admins only) ---- */
   async function loadPending() {
