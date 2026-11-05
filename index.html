@@ -204,7 +204,20 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 .tile b { font: 700 24px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
 .tile .sub { font-size: 12.5px; color: var(--muted); }
 .tile.warn { border-color: var(--coral); }
-.tile:last-child { grid-column: 1 / -1; }
+.tile.span { grid-column: 1 / -1; }
+@media (min-width: 560px) { .tile.span { grid-column: auto; } }
+.lb { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.lb li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
+.lb li:last-child { border-bottom: 0; }
+.lb .pos { font: 700 15px/1 var(--mono); color: var(--muted); text-align: center; }
+.lb li:nth-child(-n+3) .pos { color: var(--coral); }
+.lb .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb .st { font: 600 14px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.lb li.me { background: rgba(255, 154, 98, .1); border-radius: 8px; }
+.invite-link { padding: 10px 12px; border: 1px dashed var(--line); border-radius: 10px; font: 600 13px/1.4 var(--mono); overflow-wrap: anywhere; color: var(--ink); }
+.acts2 { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.tip .tip-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.tip .tip-acts button { min-height: 36px; padding: 6px 12px; border: 1px solid rgba(10, 26, 36, .35); border-radius: 8px; background: transparent; color: var(--night); font: 600 13px/1 var(--body); }
 .chartbox { display: grid; gap: 8px; }
 .bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--line); }
 .bars button { flex: 1 1 0; min-width: 0; height: 100%; padding: 0; border: 0; background: none; display: flex; align-items: flex-end; }
@@ -292,6 +305,11 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       <span><i class="sw" style="border:1px dashed var(--coral)"></i>Next brick goes here</span>
     </div>
     <button class="btn" type="button" id="heroPlace">Place today's brick</button>
+    <div class="card" id="shareCard" hidden>
+      <div class="row"><h3 id="shareTitle">Show off your brick</h3><button class="btn ghost" type="button" id="shareClose" style="width:auto;min-height:0">Not now</button></div>
+      <p class="muted" id="shareText">Share a picture of your brick and invite friends to build with you.</p>
+      <button class="btn" type="button" id="shareBtn">Share a picture</button>
+    </div>
 
     <div class="card" id="installCard" hidden>
       <div class="row"><h3>Get Daily Brick on your phone</h3><button class="btn ghost" type="button" id="installClose" style="width:auto;min-height:0">Not now</button></div>
@@ -364,8 +382,11 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
             <button class="btn ghost" type="button" id="bizRenew">Add 30 more days for R89</button>
           </div>
         </div>
-        <div class="plan"><div class="row"><h3>Supporter pass</h3><span class="soon">Coming soon</span></div>
-          <ul><li>Every premium finish included</li><li>A streak freeze for missed days</li><li>A supporter badge on your bricks</li></ul></div>
+        <div class="plan" id="supPlan"><div class="row"><h3>Supporter pass</h3><span class="amt">R29 / 30 days</span></div>
+          <ul><li>Gold leaf, glazed and carved finishes included, every day</li><li>A streak freeze with every pass</li><li>A Supporter badge on your bricks</li><li>Helps keep Daily Brick growing. No contract</li></ul>
+          <p class="ok" id="supActive" hidden></p>
+          <button class="btn" type="button" id="supBuy">Become a supporter for R29</button>
+        </div>
       </div>
       <p class="note">Prices are in South African rand. Payments are handled securely by Paystack. Read the <a href="/legal.html#refunds">refund policy</a>.</p>
     </div>
@@ -380,6 +401,11 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       <div class="card goal"><span class="gnum">10</span><h3>Bring businesses in</h3><p class="muted">Up to 10 bricks a day, with the logo shown across the day's bricks.</p></div>
     </div>
     <div class="card"><h3>Wall milestones</h3><div class="msbar" id="msbar"></div></div>
+    <div class="card">
+      <div class="row"><h3>Top streaks</h3><span class="note" id="lbCount"></span></div>
+      <ol class="lb" id="lbList"></ol>
+      <p class="note" id="lbMe"></p>
+    </div>
     <div class="card"><h3>Streak milestones</h3><div class="miles" id="miles"></div></div>
   </section>
 
@@ -432,6 +458,16 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
         <p class="note" id="rewardsText"></p>
         <div class="row"><span>Streak freezes: <b id="freezeN">0</b> of 5</span><button class="btn ghost" id="buyFreeze" type="button" style="width:auto;min-height:0">Buy one for R9</button></div>
         <p class="note">A freeze saves your streak when you miss a day, for up to 3 missed days in a row.</p>
+        <button class="btn ghost" type="button" id="shareStreak" style="justify-self:start;width:auto;min-height:0">Share a picture of my streak</button>
+      </div>
+      <div class="rewards" id="inviteBox">
+        <div class="row"><h3>Invite friends</h3><span class="tag" id="inviteCount">0 joined</span></div>
+        <p class="note">When a friend joins with your link and places their first brick, you both get a free Glazed brick (for up to 10 friends).</p>
+        <div class="invite-link" id="inviteLink"></div>
+        <div class="acts2">
+          <button class="btn" type="button" id="inviteShare">Share my link</button>
+          <button class="btn ghost" type="button" id="inviteCopy">Copy link</button>
+        </div>
       </div>
       <label class="label" for="nameEdit">Name on your bricks</label>
       <input type="text" id="nameEdit" maxlength="30" autocomplete="nickname">
@@ -471,7 +507,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       <p class="note" id="oUpdated"></p>
     </div>
     <div class="panel" id="adminPanel" hidden>
-      <div class="row"><h2>Photos and logos to approve</h2><button class="btn ghost" type="button" id="adminRefresh" style="width:auto;min-height:0">Refresh</button></div>
+      <div class="row"><h2>Photos, logos and reports</h2><button class="btn ghost" type="button" id="adminRefresh" style="width:auto;min-height:0">Refresh</button></div>
       <div id="adminList" class="opts"></div>
     </div>
     <div class="panel" id="helpPanel">
@@ -554,7 +590,8 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   }
   var REWARD = { glaze: 'credit_glaze', gold: 'credit_gold', carved: 'credit_carved' };
   function creditFor(fid) { return profile && REWARD[fid] ? (profile[REWARD[fid]] || 0) : 0; }
-  function rewardFinish() { return sel.f !== 'plain' && creditFor(sel.f) > 0; }
+  function supporterActive() { return !!(profile && profile.supporter_until && new Date(profile.supporter_until) > new Date()); }
+  function rewardFinish() { return sel.f !== 'plain' && (supporterActive() || creditFor(sel.f) > 0); }
   function badgeFor(n) { return n >= 365 ? 'Year builder' : n >= 100 ? 'Centurion' : n >= 30 ? 'Month builder' : n >= 7 ? 'Week builder' : ''; }
   var todayCount = 0;
   function bizActive() { return !!(profile && profile.business_until && new Date(profile.business_until) > new Date()); }
@@ -564,7 +601,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 
   /* ---- data ---- */
   async function loadWall() {
-    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles(display_name,business_name,logo_url,logo_status,longest_streak)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles(display_name,business_name,logo_url,logo_status,longest_streak,supporter_until)').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
     var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
     if (!s.error && s.data) wallTotal = Number(s.data.total_bricks) || 0;
@@ -671,11 +708,25 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     s.textContent = h.mine ? 'Your brick' : ((h.b.biz && pr.business_name) || pr.display_name || 'A builder');
     if (h.b.biz && !h.mine) s.textContent += ' (business)';
     var bdg = badgeFor(pr.longest_streak || 0);
+    if (pr.supporter_until && new Date(pr.supporter_until) > new Date()) s.textContent += ' \u00b7 Supporter';
     if (bdg) s.textContent += ' \u00b7 ' + bdg;
     tip.appendChild(s);
     var fn = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[h.b.finish];
     var ph = h.b.photo_status === 'approved' ? ' · Photo' : (h.mine && h.b.photo_status === 'pending') ? ' · Photo waiting for approval' : (h.mine && h.b.photo_status === 'rejected') ? ' · Photo not approved' : '';
     tip.appendChild(document.createTextNode((fn ? ' · ' + fn : '') + (h.b.message ? ' · \u201c' + h.b.message + '\u201d' : '') + ph + ' · placed ' + h.b.placed_on));
+    var acts = document.createElement('div'); acts.className = 'tip-acts';
+    function act(label, fnc) { var bt = document.createElement('button'); bt.type = 'button'; bt.textContent = label; bt.addEventListener('click', function (ev) { ev.stopPropagation(); fnc(); }); acts.appendChild(bt); }
+    var bid = h.b.id;
+    if (profile && profile.is_admin) {
+      if (h.b.message) act('Remove writing', function () { adminBrick(bid, 'clear_message'); });
+      if (h.b.photo_url && h.b.photo_status !== 'rejected') act('Hide photo', function () { adminBrick(bid, 'hide_photo'); });
+    }
+    if (user && !h.mine && !(profile && profile.is_admin)) act('Report', async function () {
+      var r = await sb.rpc('report_brick', { p_brick: bid });
+      tip.hidden = true;
+      toast(r.error ? friendly(r.error.message) : 'Thanks. The owner will check this brick.');
+    });
+    if (acts.children.length) tip.appendChild(acts);
     tip.hidden = false;
   });
   function drawPreview() {
@@ -729,7 +780,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     btn.disabled = busy || (done && !cost && !rw);
     if (busy) btn.textContent = 'Please wait…';
     else if (cost) btn.textContent = upgrade ? 'Pay R' + cost + (biz ? ' to upgrade your latest brick' : ' to upgrade today\'s brick') : 'Pay R' + cost + ' and place brick';
-    else if (rw) btn.textContent = upgrade ? 'Use your free reward on today\'s brick' : 'Place brick with your free reward';
+    else if (rw) btn.textContent = supporterActive() ? (upgrade ? 'Add your supporter finish to today\'s brick' : 'Place brick with your supporter finish') : (upgrade ? 'Use your free reward on today\'s brick' : 'Place brick with your free reward');
     else if (done) btn.textContent = 'Come back tomorrow';
     else btn.textContent = biz ? 'Place brick ' + (todayCount + 1) + ' of 10' : 'Place today\'s brick';
     $('placeAll').hidden = !biz || busy || !!cost || rw || left < 2;
@@ -748,8 +799,9 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   function renderRewards() {
     fiBox.querySelectorAll('.opt').forEach(function (b) {
       var fid = b.getAttribute('data-fid'), c = creditFor(fid), p = FINISHES.filter(function (x) { return x.id === fid; })[0].p;
-      b.children[1].textContent = c > 0 ? 'Free reward (' + c + ')' : p ? '+R' + p : 'Free';
-      b.classList.toggle('has', c > 0 && b.getAttribute('aria-pressed') !== 'true');
+      var sup = p && supporterActive();
+      b.children[1].textContent = sup ? 'Included' : c > 0 ? 'Free reward (' + c + ')' : p ? '+R' + p : 'Free';
+      b.classList.toggle('has', (sup || c > 0) && b.getAttribute('aria-pressed') !== 'true');
     });
     if (!profile) return;
     var have = [];
@@ -761,8 +813,14 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       (next ? 'Next: ' + next[2] + ' at a ' + next[0] + '-day streak (' + (next[0] - st) + ' to go).' : 'You have reached every streak reward. Legend.');
     $('freezeN').textContent = profile.freezes || 0;
     $('buyFreeze').hidden = (profile.freezes || 0) >= 5;
-    var bd = badgeFor(profile.longest_streak || 0);
+    var bd = [supporterActive() ? 'Supporter' : '', badgeFor(profile.longest_streak || 0)].filter(Boolean).join(' \u00b7 ');
     $('badgeText').hidden = !bd; $('badgeText').textContent = bd;
+    $('inviteLink').textContent = inviteLink();
+    $('inviteCount').textContent = (profile.referrals_joined || 0) + ' joined';
+    var sa = supporterActive();
+    $('supActive').hidden = !sa;
+    if (sa) $('supActive').textContent = 'You\'re a supporter until ' + new Date(profile.supporter_until).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) + '. Thank you!';
+    $('supBuy').textContent = sa ? 'Add 30 more days for R29' : 'Become a supporter for R29';
     var fz = frozenDays();
     if (fz) $('resetNote').textContent = 'You missed ' + (fz === 1 ? 'a day' : fz + ' days') + '. Place a brick today and ' + (fz === 1 ? 'a freeze' : fz + ' freezes') + ' will save your streak.';
   }
@@ -831,7 +889,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   function show(tab) {
     VIEWS.forEach(function (k) { $('tab-' + k).hidden = k !== tab; });
     document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab)); });
-    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); loadOwner(); }
+    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); loadOwner(); } if (tab === 'goals') loadLeaders(); if (tab !== 'wall') $('shareCard').hidden = true;
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
@@ -854,6 +912,9 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     show('wall'); thud(); confetti();
     var st = liveStreak(), m = STREAKS.filter(function (x) { return x[0] === st; })[0];
     toast(m && !msg ? st + '-day streak! You earned ' + m[2] + '.' : (msg || 'Brick placed. See you tomorrow!'));
+    $('shareTitle').textContent = m ? 'You reached a ' + st + '-day streak!' : st > 1 ? 'Day ' + st + ' of your streak' : 'Show off your brick';
+    $('shareText').textContent = 'Share a picture of your brick and invite friends to build with you. You both get a free Glazed brick when they join.';
+    $('shareCard').hidden = false;
   }
   async function fnError(err) {
     try { var j = await err.context.json(); return j.error || j.message || err.message; } catch (e) { return err && err.message; }
@@ -983,7 +1044,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     sel.f = 'plain';
     fiBox.querySelectorAll('.opt').forEach(function (x, i) { x.setAttribute('aria-pressed', String(i === 0)); });
     if (paidAfter) { await loadProfile(); toast('Free ' + name + ' finish added. Now pay for the rest.'); payForExtras(); return; }
-    celebrate('Free ' + name + ' brick placed. Enjoy your reward!');
+    celebrate(supporterActive() ? name + ' brick placed. Thanks for being a supporter!' : 'Free ' + name + ' brick placed. Enjoy your reward!');
   }
   $('buyFreeze').addEventListener('click', async function () {
     if (!user) return;
@@ -1064,7 +1125,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     $('authBtn').disabled = true;
     var r;
     if (mode === 'signup') {
-      r = await sb.auth.signUp({ email: email, password: pass, options: { data: { display_name: name || email.split('@')[0] }, emailRedirectTo: location.origin } });
+      r = await sb.auth.signUp({ email: email, password: pass, options: { data: { display_name: name || email.split('@')[0], ref: refCode() || '' }, emailRedirectTo: location.origin } });
       if (!r.error && !r.data.session) { ok.textContent = 'Almost done! Check your email and tap the link to confirm, then come back and log in.'; ok.hidden = false; setMode('login'); ok.hidden = false; }
     } else {
       r = await sb.auth.signInWithPassword({ email: email, password: pass });
@@ -1107,9 +1168,10 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   });
 
   /* ---- owner dashboard (admins only) ---- */
+  function plural(n, w) { n = n || 0; return fmt(n) + ' ' + w + (n === 1 ? '' : 's'); }
   function rands(c) { return 'R' + Math.round((c || 0) / 100).toLocaleString('en-ZA'); }
   function shortDay(d) { return new Date(d + 'T00:00:00Z').toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }); }
-  var KIND = { extras: 'Brick extras', business: 'Business plan', freeze: 'Streak freeze' };
+  var KIND = { extras: 'Brick extras', business: 'Business plan', freeze: 'Streak freeze', supporter: 'Supporter pass' };
   async function loadOwner() {
     if (!profile || !profile.is_admin) { $('ownerPanel').hidden = true; return; }
     $('ownerPanel').hidden = false;
@@ -1118,14 +1180,14 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var s = r.data, inc = s.income || {};
     $('oIncome30').textContent = rands(inc.d30);
     $('oIncomeToday').textContent = rands(inc.today); $('oIncome7').textContent = rands(inc.d7); $('oIncomeAll').textContent = rands(inc.all);
-    var parts = [['Extras', inc.extras, 'var(--coral)'], ['Business', inc.business, 'var(--mint)'], ['Freezes', inc.freeze, '#d9a93b']];
+    var parts = [['Extras', inc.extras, 'var(--coral)'], ['Business', inc.business, 'var(--mint)'], ['Supporters', inc.supporter, '#b9a3ff'], ['Freezes', inc.freeze, '#d9a93b']];
     var sp = $('oSplit'); sp.innerHTML = '';
-    var sum = (inc.extras || 0) + (inc.business || 0) + (inc.freeze || 0);
+    var sum = (inc.extras || 0) + (inc.business || 0) + (inc.supporter || 0) + (inc.freeze || 0);
     sp.hidden = !sum;
     parts.forEach(function (p) { if (!p[1]) return; var i = document.createElement('i'); i.style.flex = String(p[1]); i.style.background = p[2]; i.title = p[0] + ' ' + rands(p[1]); sp.appendChild(i); });
     $('oTest').textContent = (sum ? 'All time: ' + parts.filter(function (p) { return p[1]; }).map(function (p) { return p[0] + ' ' + rands(p[1]); }).join(' \u00b7 ') + '. ' : 'No real payments yet. ') +
       (s.test_orders ? s.test_orders + ' test payment' + (s.test_orders === 1 ? '' : 's') + ' (' + rands(s.test_income) + ') not counted.' : '');
-    var pend = (s.pending_photos || 0) + (s.pending_logos || 0);
+    var pend = (s.pending_photos || 0) + (s.pending_logos || 0) + (s.reports || 0);
     var tiles = [
       ['Users', fmt(s.users), '+' + fmt(s.users_today) + ' today \u00b7 +' + fmt(s.users_7d) + ' this week'],
       ['Built today', fmt(s.builders_today), fmt(s.bricks_today) + ' bricks placed'],
@@ -1133,7 +1195,9 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       ['Streaks of 7+', fmt(s.streaks_7plus), 'best ever: ' + fmt(s.best_streak) + ' days'],
       ['Reminders on', fmt(s.reminders_on), 'people get daily reminders'],
       ['Businesses', fmt(s.businesses_active), 'active plans'],
-      ['To approve', fmt(pend), fmt(s.pending_photos) + ' photos \u00b7 ' + fmt(s.pending_logos) + ' logos', pend > 0]
+      ['Supporters', fmt(s.supporters_active), 'active passes'],
+      ['Invited', fmt(s.invited), 'joined with a friend\'s link'],
+      ['To check', fmt(pend), plural(s.pending_photos, 'photo') + ' \u00b7 ' + plural(s.pending_logos, 'logo') + ' \u00b7 ' + plural(s.reports, 'report'), pend > 0]
     ];
     var tb = $('oTiles'); tb.innerHTML = '';
     tiles.forEach(function (x) {
@@ -1144,6 +1208,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       d.children[0].textContent = x[0]; d.children[1].textContent = x[1]; d.children[2].textContent = x[2];
       tb.appendChild(d);
     });
+    if (tiles.length % 2) tb.lastChild.classList.add('span');
     var days = s.days || [], max = Math.max(1, Math.max.apply(null, days.map(function (d) { return d.builders; })));
     var bars = $('oBars'); bars.innerHTML = '';
     function tip(d, btn) {
@@ -1200,7 +1265,22 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       bt[1].addEventListener('click', function () { moderateLogo(p.id, false); });
       list.appendChild(d);
     });
-    if (!r.data.length && !(lg.data || []).length) { var p = document.createElement('p'); p.className = 'muted'; p.textContent = 'No photos waiting. Nice work.'; list.appendChild(p); return; }
+    var rp = await sb.rpc('admin_reports');
+    (rp.data || []).forEach(function (b) {
+      var d = document.createElement('div'); d.className = 'mod';
+      d.innerHTML = '<span class="label"></span><span></span><span class="note"></span><div class="acts"></div>';
+      d.children[0].textContent = 'Reported ' + b.reports + (b.reports === 1 ? ' time' : ' times');
+      d.children[1].textContent = b.message ? 'Writing: \u201c' + b.message + '\u201d' : 'No writing';
+      d.children[2].textContent = (b.display_name || 'A builder') + ' \u00b7 ' + b.placed_on + (b.photo_url && b.photo_status === 'approved' ? ' \u00b7 has a photo' : '');
+      if (b.photo_url && b.photo_status === 'approved') { var im = document.createElement('img'); im.alt = 'Reported photo'; im.src = publicUrl(b.photo_url); d.insertBefore(im, d.children[1]); }
+      var ac = d.querySelector('.acts');
+      function add(label, action, cls) { var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'btn' + (cls ? ' ' + cls : ''); bt.textContent = label; bt.addEventListener('click', function () { adminBrick(b.id, action); }); ac.appendChild(bt); }
+      if (b.message) add('Remove writing', 'clear_message');
+      if (b.photo_url && b.photo_status === 'approved') add('Hide photo', 'hide_photo');
+      add('Keep it', 'dismiss', 'no');
+      list.appendChild(d);
+    });
+    if (!r.data.length && !(lg.data || []).length && !(rp.data || []).length) { var p = document.createElement('p'); p.className = 'muted'; p.textContent = 'Nothing waiting. Nice work.'; list.appendChild(p); return; }
     r.data.forEach(function (b) {
       var d = document.createElement('div'); d.className = 'mod';
       d.innerHTML = '<img alt="Photo waiting for approval"><span class="note"></span><div class="acts"><button class="btn" type="button">Approve</button><button class="btn no" type="button">Reject</button></div>';
@@ -1211,6 +1291,13 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       bt[1].addEventListener('click', function () { moderate(b.id, false); });
       list.appendChild(d);
     });
+  }
+  async function adminBrick(id, action) {
+    var r = await sb.rpc('admin_moderate_brick', { p_brick: id, p_action: action });
+    $('tip').hidden = true;
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    toast(action === 'clear_message' ? 'Writing removed.' : action === 'hide_photo' ? 'Photo hidden.' : 'Report dismissed.');
+    loadWall(); if (!$('tab-me').hidden) { loadPending(); loadOwner(); }
   }
   async function moderate(id, ok) {
     var r = await sb.rpc('moderate_photo', { p_brick: id, p_approve: ok });
@@ -1223,6 +1310,119 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     toast(ok ? 'Logo approved.' : 'Logo rejected.'); loadPending(); loadWall();
   }
   $('adminRefresh').addEventListener('click', loadPending);
+
+  /* ---- top streaks ---- */
+  async function loadLeaders() {
+    var r = await sb.rpc('top_streaks');
+    var list = $('lbList'); list.innerHTML = '';
+    if (r.error || !r.data) { $('lbMe').textContent = 'The leaderboard could not load. Try again later.'; return; }
+    var top = r.data.top || [];
+    if (!top.length) { $('lbMe').textContent = 'No streaks yet. Place a brick today and you\'ll be first on the board.'; $('lbCount').textContent = ''; return; }
+    top.forEach(function (x) {
+      var li = document.createElement('li'); if (x.me) li.className = 'me';
+      li.innerHTML = '<span class="pos"></span><span class="nm"></span><span class="st"></span>';
+      li.children[0].textContent = x.pos; li.children[1].textContent = x.name + (x.me ? ' (you)' : ''); li.children[2].textContent = x.streak + (x.streak === 1 ? ' day' : ' days');
+      list.appendChild(li);
+    });
+    $('lbCount').textContent = fmt(r.data.builders) + ' active streaks';
+    var me = r.data.me;
+    $('lbMe').textContent = !user ? 'Sign up to get on the board.' : me ? (me.pos <= 10 ? 'You\'re in the top 10. Keep it going!' : 'You\'re number ' + me.pos + ' with ' + me.streak + ' days. Keep building to climb.') : 'Place today\'s brick to start a streak and join the board.';
+  }
+
+  /* ---- invites ---- */
+  function refCode() {
+    var m = location.search.match(/[?&]ref=([A-Za-z0-9]{4,12})/);
+    if (m) return m[1].toUpperCase();
+    try { return localStorage.getItem('db_ref') || ''; } catch (e) { return ''; }
+  }
+  (function () {
+    var m = location.search.match(/[?&]ref=([A-Za-z0-9]{4,12})/);
+    if (!m) return;
+    try { localStorage.setItem('db_ref', m[1].toUpperCase()); } catch (e) {}
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+    window.__invited = true;
+  })();
+  function inviteLink() { return location.origin + '/?ref=' + ((profile && profile.ref_code) || ''); }
+  function inviteText() { return 'Come build with me on Daily Brick! One free brick a day to build a wall longer than the Great Wall of China. Join with my link and we both get a free Glazed brick:'; }
+  async function copyText(s) {
+    try { await navigator.clipboard.writeText(s); toast('Link copied. Paste it in WhatsApp or anywhere.'); }
+    catch (e) { toast('Copy failed. Press and hold the link to copy it.'); }
+  }
+  $('inviteCopy').addEventListener('click', function () { if (profile) copyText(inviteLink()); });
+  $('inviteShare').addEventListener('click', async function () {
+    if (!profile) return;
+    if (navigator.share) { try { await navigator.share({ title: 'Daily Brick', text: inviteText(), url: inviteLink() }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    copyText(inviteLink());
+  });
+
+  /* ---- share pictures ---- */
+  async function makeSharePicture() {
+    try { await Promise.all([document.fonts.load('800 80px Cinzel'), document.fonts.load('600 40px Figtree'), document.fonts.load('600 30px "IBM Plex Mono"')]); } catch (e) {}
+    var W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+    var x = c.getContext('2d');
+    var g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0a1a24'); g.addColorStop(.55, '#123542'); g.addColorStop(1, '#0a1a24');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    // logo
+    var s = 3.2, lx = 80, ly = 80;
+    [[2, 4, '#ff9a62'], [16, 4, '#e0713a'], [9, 13, '#ff9a62'], [2, 22, '#e0713a'], [16, 22, '#ff9a62']].forEach(function (b) { x.fillStyle = b[2]; x.fillRect(lx + b[0] * s, ly + b[1] * s, 12 * s, 7 * s); });
+    x.fillStyle = '#f1f7f4'; x.font = '800 54px Cinzel, Georgia, serif'; x.textBaseline = 'middle'; x.textAlign = 'left';
+    x.fillText('Daily Brick', lx + 120, ly + 48);
+    var st = liveStreak(), mine = bricks.filter(function (b) { return user && b.user_id === user.id; }).pop();
+    x.textAlign = 'center';
+    x.fillStyle = '#ffd7b0'; x.font = '600 30px "IBM Plex Mono", monospace';
+    x.fillText(st > 1 ? 'MY STREAK' : 'MY BRICK IS ON THE WALL', W / 2, 300);
+    x.fillStyle = '#ff9a62'; x.font = '800 ' + (st > 1 ? 150 : 96) + 'px Cinzel, Georgia, serif';
+    x.fillText(st > 1 ? st + ' days' : 'I built today', W / 2, st > 1 ? 410 : 400);
+    // the brick
+    var bw = 620, bh = 290, bx = (W - bw) / 2, by = 520;
+    drawBrick(x, bx, by, bw, bh, mine ? mine.color : sel.c, false, mine ? mine.finish : 'plain', mine ? mine.message : '', null);
+    x.strokeStyle = '#f1f7f4'; x.lineWidth = 8; x.strokeRect(bx + 4, by + 4, bw - 8, bh - 8);
+    // a strip of wall underneath
+    var cols = ['#d9714e', '#d4a76a', '#5fa3b0', '#4f6e7c', '#6a8f5a', '#d9973a', '#cf8585', '#5b6e7a'];
+    for (var r = 0; r < 3; r++) for (var k = -1; k < 9; k++) { var wx = k * 130 + (r % 2 ? 65 : 0), wy = 880 + r * 64; x.fillStyle = cols[(k + r * 3 + 16) % 8]; x.fillRect(wx + 4, wy, 122, 56); x.fillStyle = 'rgba(0,0,0,.22)'; x.fillRect(wx + 4, wy + 46, 122, 10); }
+    x.fillStyle = '#f1f7f4'; x.font = '600 40px Figtree, system-ui, sans-serif';
+    x.fillText('Help build a wall longer than', W / 2, 1110);
+    x.fillText('the Great Wall of China.', W / 2, 1162);
+    x.fillStyle = '#ff9a62'; x.font = '600 34px "IBM Plex Mono", monospace';
+    x.fillText(location.host + ((profile && profile.ref_code) ? '/?ref=' + profile.ref_code : ''), W / 2, 1250);
+    return await new Promise(function (res) { c.toBlob(res, 'image/png'); });
+  }
+  async function sharePicture() {
+    if (!user) { show('me'); return; }
+    var blob = await makeSharePicture();
+    if (!blob) { toast('The picture could not be made. Try again.'); return; }
+    var file = new File([blob], 'daily-brick.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: inviteText() + ' ' + inviteLink() }); $('shareCard').hidden = true; return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daily-brick.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+    toast('Picture saved. Share it from your photos or downloads.');
+  }
+  $('shareBtn').addEventListener('click', sharePicture);
+  $('shareStreak').addEventListener('click', sharePicture);
+  $('shareClose').addEventListener('click', function () { $('shareCard').hidden = true; });
+
+  /* ---- simple purchases: supporter pass ---- */
+  async function payItem(action, okMsg) {
+    if (!user) { show('me'); toast('Create an account or log in first.'); return; }
+    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
+    var r = await sb.functions.invoke('smooth-action', { body: { action: action } });
+    if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
+    var ref = r.data.reference;
+    new PaystackPop().resumeTransaction(r.data.access_code, {
+      onSuccess: async function () {
+        var ok = await verifyPayment(ref);
+        await loadProfile(); await loadWall();
+        if (ok) { confetti(); toast(okMsg); } else toast('Payment received. It will show up in a minute or two.');
+      },
+      onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
+      onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
+    });
+  }
+  $('supBuy').addEventListener('click', function () { payItem('supporter', 'You\'re a supporter! All finishes are now included. Thank you.'); });
 
   /* ---- daily reminders (push notifications) ---- */
   var pushOK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -1337,6 +1537,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   setMode('signup'); drawPreview(); render();
   sb.auth.getSession().then(function (r) {
     user = r.data.session ? r.data.session.user : null; loadProfile();
+    if (window.__invited && !user) setTimeout(function () { toast('A friend invited you! Sign up and place your first brick to get a free Glazed brick.'); }, 800);
     if (location.hash === '#place') { show(user ? 'place' : 'me'); try { history.replaceState(null, '', location.pathname); } catch (e) {} }
   });
   renderRemind(false);
