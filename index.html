@@ -639,7 +639,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 
   /* ---- data ---- */
   async function loadWall() {
-    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles(display_name,business_name,logo_url,logo_status,longest_streak,supporter_until)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select('id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles!user_id(display_name,business_name,logo_url,logo_status,longest_streak,supporter_until)').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
     var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
     if (!s.error && s.data) wallTotal = Number(s.data.total_bricks) || 0;
@@ -1289,7 +1289,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   async function loadPending() {
     if (!profile || !profile.is_admin) { $('adminPanel').hidden = true; return; }
     $('adminPanel').hidden = false;
-    var r = await sb.from('bricks').select('id,photo_url,placed_on,profiles(display_name)').eq('photo_status', 'pending').order('id', { ascending: true }).limit(30);
+    var r = await sb.from('bricks').select('id,photo_url,placed_on,profiles!user_id(display_name)').eq('photo_status', 'pending').order('id', { ascending: true }).limit(30);
     var lg = await sb.from('profiles').select('id,business_name,logo_url').eq('logo_status', 'pending').limit(30);
     var list = $('adminList'); list.innerHTML = '';
     if (r.error) { list.textContent = friendly(r.error.message); return; }
