@@ -241,6 +241,24 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 .danger h3 { margin: 0; }
 .btn.danger-btn { background: #c4502a; color: #fff; box-shadow: none; }
 .btn.danger-btn:disabled { background: var(--night3); color: var(--muted); }
+.btn.view3d { background: var(--night2); color: var(--ink); border: 1px solid var(--line); box-shadow: none; gap: 10px; }
+.btn.view3d svg { width: 22px; height: 22px; color: var(--mint); }
+.w3d { position: fixed; inset: 0; z-index: 70; background: var(--night); }
+.w3d-stage { position: absolute; inset: 0; }
+.w3d-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.w3d-top { position: absolute; z-index: 2; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); pointer-events: none; }
+.w3d-close { pointer-events: auto; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: rgba(16, 42, 52, .9); color: var(--ink); }
+.w3d-close svg { width: 22px; height: 22px; }
+.w3d-count { pointer-events: auto; text-align: right; padding: 8px 12px; border-radius: 12px; background: rgba(16, 42, 52, .9); border: 1px solid var(--line); }
+.w3d-count b { display: block; font: 700 19px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+.w3d-count span { font-size: 12px; color: var(--muted); }
+.w3d-status { position: absolute; inset: 0; pointer-events: none; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); font-size: 15px; }
+.w3d-bottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: 10px; justify-items: center; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); pointer-events: none; }
+.w3d-tip { pointer-events: auto; max-width: min(520px, 100%); padding: 10px 14px; border-radius: 12px; background: var(--ink); color: var(--night); font-size: 14px; }
+.w3d-bar { pointer-events: auto; width: min(680px, 100%); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 6px; border-radius: 16px; background: rgba(16, 42, 52, .92); border: 1px solid var(--line); }
+.w3d-bar button { min-height: 52px; padding: 6px 2px; border: 0; border-radius: 11px; background: transparent; color: var(--ink); font: 600 12px/1.15 var(--body); display: grid; justify-items: center; align-content: center; gap: 4px; }
+.w3d-bar button svg { width: 20px; height: 20px; }
+.w3d-bar button.go { background: var(--coral); color: var(--coral-ink); }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
 .mod .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -304,6 +322,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       <span><i class="sw" style="background:var(--coral)"></i>Your bricks</span>
       <span><i class="sw" style="border:1px dashed var(--coral)"></i>Next brick goes here</span>
     </div>
+    <button class="btn view3d" type="button" id="open3d"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z M3 7l9 5 9-5 M12 12v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>See the wall in 3D</button>
     <button class="btn" type="button" id="heroPlace">Place today's brick</button>
     <div class="card" id="shareCard" hidden>
       <div class="row"><h3 id="shareTitle">Show off your brick</h3><button class="btn ghost" type="button" id="shareClose" style="width:auto;min-height:0">Not now</button></div>
@@ -532,6 +551,25 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   </div>
 </nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="w3d" id="w3d" role="dialog" aria-modal="true" aria-label="The wall in 3D" hidden>
+  <div class="w3d-stage" data-3d="stage"></div>
+  <div class="w3d-top">
+    <button class="w3d-close" type="button" id="close3d" aria-label="Close the 3D view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+    <div class="w3d-count"><b data-3d="count">0</b><span>bricks on the wall</span></div>
+  </div>
+  <div class="w3d-status" data-3d="status" hidden></div>
+  <div class="w3d-bottom">
+    <div class="w3d-tip" data-3d="tip" hidden></div>
+    <div class="w3d-bar" role="toolbar" aria-label="3D wall controls">
+      <button type="button" data-act="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l6-8 4 5 3-3 5 6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Overview</button>
+      <button type="button" data-act="fly"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h13M12 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Fly along</button>
+      <button type="button" data-act="mine"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></svg>My bricks</button>
+      <button type="button" data-act="biz"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></svg>Businesses</button>
+      <button type="button" class="go" id="place3d"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="13" width="16" height="7" rx="1.5" fill="currentColor"/><path d="M12 3v7M9 7l3 3 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Place brick</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -1507,6 +1545,34 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) {
     if (e.data && e.data.type === 'open' && e.data.hash === '#place') show(user ? 'place' : 'me');
   });
+
+  /* ---- 3D wall ---- */
+  var w3dScript = null;
+  function load3d() {
+    if (window.DailyBrick3D) return Promise.resolve();
+    if (!w3dScript) w3dScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/wall3d.js?v=1'; s.onload = res; s.onerror = function () { w3dScript = null; rej(new Error('load')); }; document.head.appendChild(s); });
+    return w3dScript;
+  }
+  function open3d() {
+    var root = $('w3d'); root.hidden = false; document.body.style.overflow = 'hidden';
+    var st = root.querySelector('[data-3d="status"]'); st.textContent = 'Loading the 3D wall\u2026'; st.hidden = false;
+    try { history.pushState({ w3d: 1 }, ''); } catch (e) {}
+    load3d().then(function () { return window.DailyBrick3D.open({ root: root, sb: sb, user: user }); })
+      .catch(function () { st.textContent = 'The 3D wall could not load. Check your connection and try again.'; st.hidden = false; });
+  }
+  function close3d(fromHistory) {
+    var root = $('w3d'); if (root.hidden) return;
+    if (window.DailyBrick3D) window.DailyBrick3D.close();
+    root.hidden = true; document.body.style.overflow = '';
+    root.querySelector('[data-3d="tip"]').hidden = true;
+    if (!fromHistory) { try { if (history.state && history.state.w3d) history.back(); } catch (e) {} }
+  }
+  $('open3d').addEventListener('click', open3d);
+  $('close3d').addEventListener('click', function () { close3d(false); });
+  window.addEventListener('popstate', function () { close3d(true); });
+  document.querySelectorAll('.w3d-bar [data-act]').forEach(function (b) { b.addEventListener('click', function () { if (window.DailyBrick3D) window.DailyBrick3D.act(b.getAttribute('data-act')); }); });
+  $('place3d').addEventListener('click', function () { close3d(false); show(user ? 'place' : 'me'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('w3d').hidden) close3d(false); });
 
   /* ---- install as an app ---- */
   var deferredPrompt = null;
