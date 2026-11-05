@@ -116,7 +116,10 @@
       var list = Object.keys(ids), out = {};
       var chunks = []; for (var i = 0; i < list.length; i += 200) chunks.push(list.slice(i, i + 200));
       return Promise.all(chunks.map(function (ch) {
-        return sb.from('profiles').select('id,display_name,business_name,logo_url,logo_status').in('id', ch).then(function (r) { (r.data || []).forEach(function (p) { out[p.id] = p; }); });
+        var base = 'id,display_name,business_name,logo_url,logo_status';
+        return sb.from('profiles').select(base + ',website,website_status').in('id', ch).then(function (r) {
+          return r.error ? sb.from('profiles').select(base).in('id', ch) : r;
+        }).then(function (r) { (r.data || []).forEach(function (p) { out[p.id] = p; }); });
       })).then(function () { return { bricks: bricks, profiles: out, photoUrl: function (path) { return sb.storage.from('brick-photos').getPublicUrl(path).data.publicUrl; }, logoUrl: function (path) { return sb.storage.from('brick-photos').getPublicUrl(path).data.publicUrl; } }; });
     });
   }
@@ -337,6 +340,7 @@
       });
       g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       e.name = p.business_name || p.display_name || 'Business';
+      e.site = (p.website && p.website_status === 'approved' && /^https?:\/\//i.test(p.website)) ? p.website : null;
       scene.add(g);
     });
 
@@ -428,6 +432,11 @@
     var tween = null, fly = null, mineIdx = -1, bizIdx = -1, tmp = new THREE.Vector3();
     function goTo(pos, target, dur) { fly = null; tween = { fromP: camera.position.clone(), toP: pos.clone(), fromT: controls.target.clone(), toT: target.clone(), t: 0, dur: reduced ? 0.01 : (dur || 1.6) }; }
     function showTip(html, ms) { tip.innerHTML = html; tip.hidden = false; clearTimeout(showTip.t); showTip.t = setTimeout(function () { tip.hidden = true; }, ms || 5000); }
+    function siteLink(e) {
+      if (!e.site) return '';
+      var host = e.site.replace(/^https?:\/\//i, '').replace(/[\/?#].*$/, '').replace(/^www\./i, '');
+      return '<a href="' + esc(e.site) + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;padding:8px 14px;border-radius:9px;background:#0f3a3f;color:#f1f7f4;font-weight:700;text-decoration:none">Visit ' + esc(host) + ' \u2197</a>';
+    }
     function esc(s) { return String(s).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
     goTo(OVERVIEW.pos, OVERVIEW.target, 2.6);
 
@@ -444,7 +453,7 @@
         if (!L.emblems.length) { showTip('No business emblems yet. Businesses get their logo on the wall every day they build.'); return; }
         bizIdx = (bizIdx + 1) % L.emblems.length; var e = L.emblems[bizIdx];
         goTo(new THREE.Vector3(e.x - 2.5, EMB_CY + 1.6, 8.5), new THREE.Vector3(e.x, EMB_CY, 0), 1.6);
-        showTip('<strong>' + esc(e.name) + '</strong> · ' + e.count + ' of 10 bricks on ' + esc(e.day) + (L.emblems.length > 1 ? '. Tap again for the next one.' : ''));
+        showTip('<strong>' + esc(e.name) + '</strong> · ' + e.count + ' of 10 bricks on ' + esc(e.day) + (L.emblems.length > 1 ? '. Tap again for the next one.' : '') + (e.site ? '<br>' + siteLink(e) : ''), e.site ? 9000 : 5000);
       }
     };
 
@@ -457,7 +466,7 @@
       ray.setFromCamera(ptr, camera);
       var hit = ray.intersectObjects(pickables, false)[0];
       if (!hit) { tip.hidden = true; return; }
-      if (hit.object.userData.emb) { var e = hit.object.userData.emb; showTip('<strong>' + esc(e.name) + '</strong> (business) · ' + e.count + ' bricks on ' + esc(e.day)); return; }
+      if (hit.object.userData.emb) { var e = hit.object.userData.emb; showTip('<strong>' + esc(e.name) + '</strong> (business) · ' + e.count + ' bricks on ' + esc(e.day) + (e.site ? '<br>' + siteLink(e) : ''), e.site ? 9000 : 5000); return; }
       var s = L.bricks[hit.instanceId]; if (!s) return;
       var ph = photoOf(s.b), p = data.profiles[s.b.user_id] || {}, fin = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[s.b.finish];
       showTip('<strong>' + (me && s.b.user_id === me ? 'Your brick' : esc(p.display_name || 'A builder')) + '</strong>' + (fin ? ' · ' + fin : '') + (s.b.message ? ' · “' + esc(s.b.message) + '”' : '') + ' · placed ' + esc(s.b.placed_on)
