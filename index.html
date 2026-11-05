@@ -220,6 +220,14 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 .pay:last-child { border-bottom: 0; }
 .pay .amt { font: 600 14px/1.4 var(--mono); text-align: right; }
 .pay .note { grid-column: 1 / -1; }
+a { color: var(--coral); text-underline-offset: 3px; }
+a:hover { color: #ffb482; }
+a.opt { color: var(--ink); text-decoration: none; }
+a.opt .price { overflow-wrap: anywhere; text-align: right; }
+.danger { display: grid; gap: 10px; padding: 14px; border: 1px solid #e0713a; border-radius: 12px; background: rgba(224, 113, 58, .08); }
+.danger h3 { margin: 0; }
+.btn.danger-btn { background: #c4502a; color: #fff; box-shadow: none; }
+.btn.danger-btn:disabled { background: var(--night3); color: var(--muted); }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
 .mod .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -359,6 +367,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
         <div class="plan"><div class="row"><h3>Supporter pass</h3><span class="soon">Coming soon</span></div>
           <ul><li>Every premium finish included</li><li>A streak freeze for missed days</li><li>A supporter badge on your bricks</li></ul></div>
       </div>
+      <p class="note">Prices are in South African rand. Payments are handled securely by Paystack. Read the <a href="/legal.html#refunds">refund policy</a>.</p>
     </div>
   </section>
 
@@ -387,6 +396,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
         <p class="err" id="authErr" hidden></p>
         <p class="ok" id="authOk" hidden></p>
         <button class="btn" type="submit" id="authBtn">Sign up</button>
+        <p class="note" id="agreeNote" style="text-align:center">By signing up you agree to the <a href="/legal.html#terms">Terms</a> and <a href="/legal.html#privacy">Privacy Policy</a>.</p>
       </form>
       <p class="switch"><span id="switchText">Already have an account?</span> <button type="button" id="switchBtn">Log in</button></p>
       <p class="switch" id="forgotRow" hidden><button type="button" id="forgotBtn">Forgot your password?</button></p>
@@ -427,6 +437,15 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
       <input type="text" id="nameEdit" maxlength="30" autocomplete="nickname">
       <button class="btn" type="button" id="saveName">Save name</button>
       <button class="btn ghost" type="button" id="logout">Log out</button>
+      <button class="btn ghost" type="button" id="delOpen">Delete my account</button>
+      <div class="danger" id="delBox" hidden>
+        <h3>Delete your account?</h3>
+        <p class="note">This removes your account, all your bricks, photos, logos, streaks and rewards straight away. It can't be undone. Any business plan time you have left is lost.</p>
+        <label class="label" for="delConfirm">Type DELETE to confirm</label>
+        <input type="text" id="delConfirm" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button class="btn danger-btn" type="button" id="delGo" disabled>Delete my account for good</button>
+        <button class="btn ghost" type="button" id="delCancel">Keep my account</button>
+      </div>
     </div>
     <div class="panel" id="ownerPanel" hidden>
       <div class="row"><h2>Owner dashboard</h2><button class="btn ghost" type="button" id="ownerRefresh" style="width:auto;min-height:0">Refresh</button></div>
@@ -454,6 +473,15 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     <div class="panel" id="adminPanel" hidden>
       <div class="row"><h2>Photos and logos to approve</h2><button class="btn ghost" type="button" id="adminRefresh" style="width:auto;min-height:0">Refresh</button></div>
       <div id="adminList" class="opts"></div>
+    </div>
+    <div class="panel" id="helpPanel">
+      <h2>Help and contact</h2>
+      <p class="muted" style="font-size:14px">Questions, a problem with a payment, or an idea for Daily Brick? Get in touch with Carel.</p>
+      <div class="opts">
+        <a class="opt" href="https://wa.me/27663159922" rel="noopener"><span>WhatsApp</span><span class="price">+27 66 315 9922</span></a>
+        <a class="opt" href="mailto:c.combrink35@gmail.com"><span>Email</span><span class="price">c.combrink35@gmail.com</span></a>
+      </div>
+      <p class="note"><a href="/legal.html#terms">Terms of use</a> · <a href="/legal.html#privacy">Privacy policy</a> · <a href="/legal.html#refunds">Refund policy</a></p>
     </div>
   </section>
 </main>
@@ -1010,6 +1038,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     $('switchBtn').textContent = su ? 'Log in' : 'Create an account';
     $('authErr').hidden = true; $('authOk').hidden = true;
     $('forgotRow').hidden = su;
+    $('agreeNote').hidden = !su;
   }
   $('showPass').addEventListener('change', function () { $('authPass').type = this.checked ? 'text' : 'password'; });
   $('forgotBtn').addEventListener('click', async function () {
@@ -1044,6 +1073,19 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
     if (r.error) { err.textContent = friendly(r.error.message); err.hidden = false; }
   });
   $('logout').addEventListener('click', async function () { await sb.auth.signOut(); toast('Logged out.'); show('wall'); });
+  $('delOpen').addEventListener('click', function () { $('delBox').hidden = false; $('delOpen').hidden = true; $('delConfirm').value = ''; $('delGo').disabled = true; $('delConfirm').focus(); });
+  $('delCancel').addEventListener('click', function () { $('delBox').hidden = true; $('delOpen').hidden = false; });
+  $('delConfirm').addEventListener('input', function () { $('delGo').disabled = this.value.trim().toUpperCase() !== 'DELETE'; });
+  $('delGo').addEventListener('click', async function () {
+    var btn = $('delGo'); btn.disabled = true; btn.textContent = 'Deleting\u2026';
+    try { if (remindSub) await remindSub.unsubscribe(); } catch (e) {}
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'delete-account', confirm: 'DELETE' } });
+    if (r.error) { btn.disabled = false; btn.textContent = 'Delete my account for good'; toast(friendly(await fnError(r.error))); return; }
+    await sb.auth.signOut();
+    $('delBox').hidden = true; $('delOpen').hidden = false; btn.textContent = 'Delete my account for good';
+    show('wall'); loadWall();
+    toast('Your account has been deleted. Thanks for building with us.');
+  });
   $('saveName').addEventListener('click', async function () {
     var n = $('nameEdit').value.trim(); if (!n || !user) return;
     var r = await sb.from('profiles').update({ display_name: n }).eq('id', user.id);
