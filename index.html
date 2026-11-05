@@ -190,6 +190,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 14px; }
 .tabs .in { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .sr { left: 0; top: 0; }
+.sel { min-height: 44px; padding: 8px 12px; background: var(--night2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; font: 600 15px/1 var(--mono); }
 .rewards { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--mortar); }
 .logo-box { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--mortar); }
 .logo-box img { height: 44px; width: auto; max-width: 50%; border-radius: 4px; background: #fff; }
@@ -376,6 +377,19 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
         <div class="stat"><b id="sStreak">0</b><span class="note">Day streak</span></div>
         <div class="stat"><b id="sBest">0</b><span class="note">Best streak</span></div>
         <div class="stat"><b id="sTotal">0</b><span class="note">Bricks laid</span></div>
+      </div>
+      <div class="rewards" id="remindBox">
+        <div class="row"><h3>Daily reminder</h3><span class="tag" id="remindState">Off</span></div>
+        <p class="note" id="remindText">Get one reminder a day, only on days you haven't placed your brick yet.</p>
+        <div class="row" id="remindControls" style="align-items:center">
+          <label class="label" for="remindTime">Remind me at</label>
+          <select id="remindTime" class="sel"></select>
+        </div>
+        <button class="btn" type="button" id="remindOn">Turn on reminders</button>
+        <div class="row" id="remindOnRow" hidden>
+          <button class="btn ghost" type="button" id="remindTest" style="width:auto;min-height:0">Send me a test</button>
+          <button class="btn ghost" type="button" id="remindOff" style="width:auto;min-height:0">Turn off</button>
+        </div>
       </div>
       <div class="rewards" id="rewardsBox">
         <div class="row"><h3>Your rewards</h3><span class="tag" id="badgeText" hidden></span></div>
@@ -740,7 +754,7 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   function show(tab) {
     VIEWS.forEach(function (k) { $('tab-' + k).hidden = k !== tab; });
     document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab)); });
-    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') loadPending();
+    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); }
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
@@ -1043,6 +1057,90 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
   }
   $('adminRefresh').addEventListener('click', loadPending);
 
+  /* ---- daily reminders (push notifications) ---- */
+  var pushOK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  var remindSub = null;
+  (function () {
+    var s = $('remindTime');
+    for (var h = 6; h <= 23; h++) { var o = document.createElement('option'); o.value = h; o.textContent = two(h) + ':00'; s.appendChild(o); }
+    s.value = '19';
+  })();
+  function toUtcHour(h) { var d = new Date(); d.setHours(h, 0, 0, 0); return d.getUTCHours(); }
+  function toLocalHour(u) { var d = new Date(); d.setUTCHours(u, 0, 0, 0); return d.getHours(); }
+  function keyBytes(b64) {
+    var s = b64.replace(/-/g, '+').replace(/_/g, '/'); s += '==='.slice((s.length + 3) % 4);
+    var bin = atob(s), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function renderRemind(on, hourLocal, msg) {
+    $('remindState').textContent = on ? 'On' : 'Off';
+    $('remindState').className = 'tag' + (on ? ' done' : '');
+    $('remindOn').hidden = on || !pushOK;
+    $('remindOnRow').hidden = !on;
+    $('remindControls').hidden = !pushOK;
+    if (on && hourLocal != null) $('remindTime').value = String(hourLocal);
+    if (msg) $('remindText').textContent = msg;
+    else if (!pushOK) $('remindText').textContent = isIOS
+      ? 'On iPhone, add Daily Brick to your home screen first (Share, then Add to Home Screen), then open it from there to turn on reminders.'
+      : 'This browser can\'t show reminders. Try Chrome, or install the app to your home screen.';
+    else if (on) $('remindText').textContent = 'You\'ll get a reminder at ' + two(Number($('remindTime').value)) + ':00 on days you haven\'t placed your brick yet.';
+    else $('remindText').textContent = 'Get one reminder a day, only on days you haven\'t placed your brick yet.';
+  }
+  async function loadRemind() {
+    if (!pushOK || !user) { renderRemind(false); return; }
+    try {
+      var reg = await navigator.serviceWorker.ready;
+      remindSub = await reg.pushManager.getSubscription();
+    } catch (e) { remindSub = null; }
+    if (!remindSub || Notification.permission !== 'granted') { renderRemind(false); return; }
+    var r = await sb.from('push_subscriptions').select('remind_hour_utc').eq('endpoint', remindSub.endpoint).maybeSingle();
+    if (r.error || !r.data) { renderRemind(false); return; }
+    renderRemind(true, toLocalHour(r.data.remind_hour_utc));
+  }
+  async function saveRemind() {
+    var j = remindSub.toJSON();
+    var r = await sb.rpc('save_push_subscription', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_hour_utc: toUtcHour(Number($('remindTime').value)) });
+    if (r.error) throw new Error(friendly(r.error.message));
+  }
+  $('remindOn').addEventListener('click', async function () {
+    if (!user || !pushOK) return;
+    var btn = $('remindOn'); btn.disabled = true; btn.textContent = 'Turning on\u2026';
+    try {
+      var perm = await Notification.requestPermission();
+      if (perm !== 'granted') throw new Error('Notifications are blocked. Allow them for Daily Brick in your phone or browser settings, then try again.');
+      var k = await sb.functions.invoke('smooth-action', { body: { action: 'push-key' } });
+      if (k.error || !k.data || !k.data.key) throw new Error(k.error ? await fnError(k.error) : 'Reminders could not be set up. Try again.');
+      var reg = await navigator.serviceWorker.ready;
+      remindSub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(k.data.key) });
+      await saveRemind();
+      renderRemind(true);
+      toast('Reminders are on. See you at ' + two(Number($('remindTime').value)) + ':00!');
+    } catch (e) {
+      toast(friendly((e && e.message) || 'Reminders could not be set up. Try again.'));
+    }
+    btn.disabled = false; btn.textContent = 'Turn on reminders';
+  });
+  $('remindTime').addEventListener('change', async function () {
+    if (!remindSub || $('remindOnRow').hidden) return;
+    try { await saveRemind(); renderRemind(true); toast('Reminder time changed to ' + two(Number(this.value)) + ':00.'); }
+    catch (e) { toast(e.message); }
+  });
+  $('remindOff').addEventListener('click', async function () {
+    if (!remindSub) { renderRemind(false); return; }
+    var ep = remindSub.endpoint;
+    try { await remindSub.unsubscribe(); } catch (e) {}
+    await sb.rpc('remove_push_subscription', { p_endpoint: ep });
+    remindSub = null; renderRemind(false); toast('Reminders are off.');
+  });
+  $('remindTest').addEventListener('click', async function () {
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'test-push' } });
+    if (r.error) toast(friendly(await fnError(r.error))); else toast('Test reminder sent. It should pop up in a few seconds.');
+  });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'open' && e.data.hash === '#place') show(user ? 'place' : 'me');
+  });
+
   /* ---- install as an app ---- */
   var deferredPrompt = null;
   var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
@@ -1070,7 +1168,11 @@ input[type=email], input[type=password] { width: 100%; min-height: 46px; padding
 
   /* ---- start ---- */
   setMode('signup'); drawPreview(); render();
-  sb.auth.getSession().then(function (r) { user = r.data.session ? r.data.session.user : null; loadProfile(); });
+  sb.auth.getSession().then(function (r) {
+    user = r.data.session ? r.data.session.user : null; loadProfile();
+    if (location.hash === '#place') { show(user ? 'place' : 'me'); try { history.replaceState(null, '', location.pathname); } catch (e) {} }
+  });
+  renderRemind(false);
   loadWall();
   setInterval(resetNote, 1000);
   setInterval(loadWall, 60000);
