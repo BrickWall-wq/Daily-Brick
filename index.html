@@ -1126,6 +1126,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     if (r.error) { render(); toast(friendly(r.error.message)); return; }
     $('inscr').value = ''; drawPreview();
     celebrate(bizActive() && todayCount + 1 < 10 ? 'Brick ' + (todayCount + 1) + ' of 10 placed.' : null);
+    autoRemindAfterBrick();
   });
   $('placeAll').addEventListener('click', async function () {
     if (!user || busy || !bizActive()) return;
@@ -1137,7 +1138,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       placed++;
     }
     busy = false;
-    if (placed) celebrate(placed + ' business bricks placed. See you tomorrow!'); else render();
+    if (placed) { celebrate(placed + ' business bricks placed. See you tomorrow!'); autoRemindAfterBrick(); } else render();
   });
 
   /* ---- auth ---- */
@@ -1495,7 +1496,23 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 
   /* ---- daily reminders (push notifications) ---- */
   var pushOK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-  var remindSub = null;
+  var remindSub = null, remindBusy = false;
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function withTimeout(p, ms, msg) { return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error(msg)); }, ms); })]); }
+  function askPermission() {
+    if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+    return new Promise(function (res) {
+      var done = false; function fin(x) { if (!done) { done = true; res(x); } }
+      try { var p = Notification.requestPermission(fin); if (p && p.then) p.then(fin, function () { fin('default'); }); } catch (e) { fin('default'); }
+    });
+  }
+  async function swReg() {
+    var reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) reg = await navigator.serviceWorker.register('/sw.js');
+    if (reg.active) return reg;
+    return withTimeout(navigator.serviceWorker.ready, 12000, 'The app\'s reminder helper did not start (step 3). Close Daily Brick completely, open it again and try once more.');
+  }
   (function () {
     var s = $('remindTime');
     for (var h = 6; h <= 23; h++) { var o = document.createElement('option'); o.value = h; o.textContent = two(h) + ':00'; s.appendChild(o); }
@@ -1521,15 +1538,20 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       ? 'On iPhone, add Daily Brick to your home screen first (Share, then Add to Home Screen), then open it from there to turn on reminders.'
       : 'This browser can\'t show reminders. Try Chrome, or install the app to your home screen.';
     else if (on) $('remindText').textContent = 'You\'ll get a reminder at ' + two(Number($('remindTime').value)) + ':00 on days you haven\'t placed your brick yet.';
-    else $('remindText').textContent = 'Get one reminder a day, only on days you haven\'t placed your brick yet.';
+    else $('remindText').textContent = 'One reminder a day, only on days you haven\'t placed your brick yet. Tap below, then tap Allow when your phone asks.';
   }
   async function loadRemind() {
     if (!pushOK || !user) { renderRemind(false); return; }
     try {
-      var reg = await navigator.serviceWorker.ready;
+      var reg = await withTimeout(swReg(), 8000, 'slow');
       remindSub = await reg.pushManager.getSubscription();
     } catch (e) { remindSub = null; }
-    if (!remindSub || Notification.permission !== 'granted') { renderRemind(false); return; }
+    if (!remindSub || Notification.permission !== 'granted') {
+      renderRemind(false);
+      // Reminders are on by default: if the phone already allows notifications, switch them on quietly.
+      if (Notification.permission === 'granted' && lsGet('db_remind_off') !== '1') enableRemind(true);
+      return;
+    }
     var r = await sb.from('push_subscriptions').select('remind_hour_utc').eq('endpoint', remindSub.endpoint).maybeSingle();
     if (r.error || !r.data) { renderRemind(false); return; }
     renderRemind(true, toLocalHour(r.data.remind_hour_utc));
@@ -1539,24 +1561,43 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var r = await sb.rpc('save_push_subscription', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_hour_utc: toUtcHour(Number($('remindTime').value)) });
     if (r.error) throw new Error(friendly(r.error.message));
   }
-  $('remindOn').addEventListener('click', async function () {
-    if (!user || !pushOK) return;
+  // auto = switched on by the app (after placing a brick, or because notifications are already allowed): stays quiet if it can't.
+  async function enableRemind(auto) {
+    if (!user || !pushOK || remindBusy) return false;
+    if (auto && Notification.permission === 'denied') return false;
+    remindBusy = true;
     var btn = $('remindOn'); btn.disabled = true; btn.textContent = 'Turning on\u2026';
+    var ok = false;
     try {
-      var perm = await Notification.requestPermission();
-      if (perm !== 'granted') throw new Error('Notifications are blocked. Allow them for Daily Brick in your phone or browser settings, then try again.');
-      var k = await sb.functions.invoke('smooth-action', { body: { action: 'push-key' } });
-      if (k.error || !k.data || !k.data.key) throw new Error(k.error ? await fnError(k.error) : 'Reminders could not be set up. Try again.');
-      var reg = await navigator.serviceWorker.ready;
-      remindSub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(k.data.key) });
-      await saveRemind();
-      renderRemind(true);
-      toast('Reminders are on. See you at ' + two(Number($('remindTime').value)) + ':00!');
+      var perm = await withTimeout(askPermission(), 90000, 'Your phone didn\'t show the notification question (step 1). Try again, or allow notifications for Daily Brick in your phone settings.');
+      if (perm !== 'granted') throw new Error(perm === 'denied'
+        ? 'Notifications are blocked. Allow them for Daily Brick in your phone settings (Apps, then Chrome or Daily Brick, then Notifications), then try again.'
+        : 'Reminders need notifications. Tap Allow when your phone asks.');
+      var k = await withTimeout(sb.functions.invoke('smooth-action', { body: { action: 'push-key' } }), 20000, 'No answer from Daily Brick (step 2). Check your internet and try again.');
+      if (k.error || !k.data || !k.data.key) throw new Error(k.error ? await fnError(k.error) : 'Reminders could not be set up (step 2). Try again.');
+      var reg = await swReg();
+      remindSub = (await reg.pushManager.getSubscription()) || await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(k.data.key) }), 25000,
+        'Your phone didn\'t finish signing up for reminders (step 4). Make sure Chrome is up to date, then try again.');
+      await withTimeout(saveRemind(), 20000, 'No answer from Daily Brick (step 5). Check your internet and try again.');
+      lsSet('db_remind_off', null);
+      renderRemind(true); ok = true;
+      toast(auto ? 'Daily reminders are on for ' + two(Number($('remindTime').value)) + ':00. You can change or switch them off on the Me tab.'
+                 : 'Reminders are on. See you at ' + two(Number($('remindTime').value)) + ':00!');
     } catch (e) {
-      toast(friendly((e && e.message) || 'Reminders could not be set up. Try again.'));
+      if (!auto) toast(friendly((e && e.message) || 'Reminders could not be set up. Try again.'));
     }
     btn.disabled = false; btn.textContent = 'Turn on reminders';
-  });
+    remindBusy = false;
+    return ok;
+  }
+  // after a brick is placed: switch reminders on once, unless the builder switched them off before
+  function autoRemindAfterBrick() {
+    if (!pushOK || !user || lsGet('db_remind_off') === '1' || lsGet('db_remind_auto') === '1') return;
+    if (remindSub && Notification.permission === 'granted') return;
+    lsSet('db_remind_auto', '1');
+    enableRemind(true);
+  }
+  $('remindOn').addEventListener('click', function () { enableRemind(false); });
   $('remindTime').addEventListener('change', async function () {
     if (!remindSub || $('remindOnRow').hidden) return;
     try { await saveRemind(); renderRemind(true); toast('Reminder time changed to ' + two(Number(this.value)) + ':00.'); }
@@ -1565,6 +1606,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   $('remindOff').addEventListener('click', async function () {
     if (!remindSub) { renderRemind(false); return; }
     var ep = remindSub.endpoint;
+    lsSet('db_remind_off', '1');
     try { await remindSub.unsubscribe(); } catch (e) {}
     await sb.rpc('remove_push_subscription', { p_endpoint: ep });
     remindSub = null; renderRemind(false); toast('Reminders are off.');
