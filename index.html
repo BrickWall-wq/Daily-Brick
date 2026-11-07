@@ -181,6 +181,11 @@ input[type=file]::file-selector-button { margin-right: 10px; padding: 8px 12px; 
 .acct svg { width: 18px; height: 18px; }
 .hd-right { display: flex; align-items: center; gap: 8px; }
 .form { display: grid; gap: 10px; }
+.oauth { display: grid; gap: 10px; margin: 6px 0 12px; }
+.btn.oauth-btn { background: #fff; color: #1f1f1f; box-shadow: none; border: 1px solid #dadce0; gap: 10px; }
+.btn.oauth-btn svg { width: 22px; height: 22px; }
+.or { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; color: var(--muted); font-size: 13px; }
+.or::before, .or::after { content: ''; height: 1px; background: var(--line); }
 input[type=email], input[type=password] { width: 100%; min-height: 46px; padding: 10px 12px; background: var(--mortar); border: 1px solid var(--line); border-radius: 10px; }
 .switch { text-align: center; font-size: 14px; color: var(--muted); }
 .switch button { background: none; border: 0; color: var(--coral); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; padding: 4px; }
@@ -262,6 +267,12 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 .w3d-bar button { min-height: 52px; padding: 6px 2px; border: 0; border-radius: 11px; background: transparent; color: var(--ink); font: 600 12px/1.15 var(--body); display: grid; justify-items: center; align-content: center; gap: 4px; }
 .w3d-bar button svg { width: 20px; height: 20px; }
 .w3d-bar button.go { background: var(--coral); color: var(--coral-ink); }
+.sharesheet { position: fixed; inset: 0; z-index: 75; background: rgba(5, 14, 20, .72); display: grid; align-items: end; }
+.ss-panel { background: var(--night2); border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 18px); display: grid; gap: 10px; max-width: 640px; width: 100%; justify-self: center; }
+.ss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ss-grid button { min-height: 72px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--night); color: var(--ink); text-align: left; display: grid; gap: 3px; align-content: center; font: inherit; }
+.ss-grid button b { font-size: 15px; } .ss-grid button span { font-size: 12.5px; color: var(--muted); }
+.ss-grid button[data-ss="post"] { border-color: var(--coral); }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .mod a { color: var(--mint); word-break: break-all; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
@@ -333,6 +344,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       <p class="muted" id="shareText">Share a picture of your brick and invite friends to build with you.</p>
       <button class="btn" type="button" id="shareBtn">Share a picture</button>
     </div>
+
 
     <div class="card" id="installCard" hidden>
       <div class="row"><h3>Get Daily Brick on your phone</h3><button class="btn ghost" type="button" id="installClose" style="width:auto;min-height:0">Not now</button></div>
@@ -441,6 +453,11 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     <div class="panel" id="authPanel">
       <h2 id="authTitle">Create your account</h2>
       <p class="muted" id="authSub">Free. Takes 30 seconds.</p>
+      <div class="oauth" id="oauthBox" hidden>
+        <button class="btn oauth-btn" type="button" data-provider="google" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.7-4.9H1.3v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.3 14.4a7.2 7.2 0 0 1 0-4.7V6.6h-4a12 12 0 0 0 0 10.9l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>Continue with Google</button>
+        <button class="btn oauth-btn" type="button" data-provider="facebook" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1877F2" d="M24 12a12 12 0 1 0-13.9 11.9v-8.4H7.1V12h3V9.4c0-3 1.8-4.7 4.5-4.7 1.3 0 2.7.2 2.7.2v2.9h-1.5c-1.5 0-2 .9-2 1.9V12h3.4l-.5 3.5h-2.9v8.4A12 12 0 0 0 24 12z"/></svg>Continue with Facebook</button>
+        <div class="or"><span>or use your email</span></div>
+      </div>
       <form class="form" id="authForm" novalidate>
         <input type="text" id="authName" placeholder="Your name (shown on your bricks)" maxlength="30" autocomplete="nickname">
         <input type="email" id="authEmail" placeholder="Email" autocomplete="email" required>
@@ -487,12 +504,24 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
         <p class="note">A freeze saves your streak when you miss a day, for up to 3 missed days in a row.</p>
         <button class="btn ghost" type="button" id="shareStreak" style="justify-self:start;width:auto;min-height:0">Share a picture of my streak</button>
       </div>
+      <div class="rewards" id="socialBox">
+        <div class="row"><h3>Your socials</h3><span class="tag">Optional</span></div>
+        <p class="note">Add your names, and anyone who taps your bricks can follow you.</p>
+        <label class="label" for="soIg">Instagram</label>
+        <input type="text" id="soIg" maxlength="80" placeholder="@yourname" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <label class="label" for="soTt">TikTok</label>
+        <input type="text" id="soTt" maxlength="80" placeholder="@yourname" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <label class="label" for="soFb">Facebook</label>
+        <input type="text" id="soFb" maxlength="80" placeholder="your page name, from its link" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <button class="btn ghost" type="button" id="soSave">Save my socials</button>
+      </div>
       <div class="rewards" id="inviteBox">
         <div class="row"><h3>Invite friends</h3><span class="tag" id="inviteCount">0 joined</span></div>
         <p class="note">When a friend joins with your link and places their first brick, you both get a free Glazed brick (for up to 10 friends).</p>
         <div class="invite-link" id="inviteLink"></div>
         <div class="acts2">
           <button class="btn" type="button" id="inviteShare">Share my link</button>
+          <button class="btn ghost" type="button" id="inviteMore" style="grid-column:1/-1">More ways to share</button>
           <button class="btn ghost" type="button" id="inviteCopy">Copy link</button>
         </div>
       </div>
@@ -519,6 +548,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
         <div class="split" id="oSplit"></div>
         <p class="note" id="oTest"></p>
       </div>
+      <button class="btn" type="button" id="makeReel">&#127916; Make today's reel</button>
       <div class="tiles" id="oTiles"></div>
       <div class="chartbox">
         <div class="row"><h3>Builders per day</h3><span class="note">Last 14 days</span></div>
@@ -559,6 +589,21 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   </div>
 </nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="sharesheet" id="shareSheet" role="dialog" aria-modal="true" aria-labelledby="ssTitle" hidden>
+  <div class="ss-panel">
+    <div class="row"><h3 id="ssTitle">Share Daily Brick</h3><button class="btn ghost" type="button" id="ssClose" style="width:auto;min-height:0">Close</button></div>
+    <p class="note">Pictures include your invite link. When friends join with it, you both get a free Glazed brick.</p>
+    <div class="ss-grid">
+      <button type="button" data-ss="post"><b>Picture for a post</b><span>Instagram, Facebook, TikTok</span></button>
+      <button type="button" data-ss="story"><b>Picture for a story</b><span>Stories and WhatsApp Status</span></button>
+      <button type="button" data-ss="wa"><b>WhatsApp</b><span>Send your invite link</span></button>
+      <button type="button" data-ss="fb"><b>Facebook</b><span>Post your invite link</span></button>
+      <button type="button" data-ss="copy"><b>Copy link</b><span>Paste it anywhere</span></button>
+    </div>
+    <p class="note">For Instagram or TikTok, pick a picture above, then choose the app. If it isn't in the list, the picture is saved to your phone so you can post it from your gallery.</p>
+  </div>
+</div>
 
 <div class="w3d" id="w3d" role="dialog" aria-modal="true" aria-label="The wall in 3D" hidden>
   <div class="w3d-stage" data-3d="stage"></div>
@@ -658,7 +703,8 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   /* ---- data ---- */
   async function loadWall() {
     var cols = 'id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles!user_id(display_name,business_name,logo_url,logo_status,longest_streak,supporter_until';
-    var r = await sb.from('bricks').select(cols + ',website,website_status)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select(cols + ',website,website_status,instagram,tiktok,facebook)').order('id', { ascending: false }).limit(SHOW);
+    if (r.error) r = await sb.from('bricks').select(cols + ',website,website_status)').order('id', { ascending: false }).limit(SHOW);
     if (r.error) r = await sb.from('bricks').select(cols + ')').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
     var s = await sb.from('wall_stats').select('total_bricks').eq('id', 1).single();
@@ -673,6 +719,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     todayCount = c.error ? (profile && profile.last_brick_date === todayUTC() ? 1 : 0) : (c.count || 0);
     render(); renderBiz();
     if (profile && profile.is_admin && !$('tab-me').hidden) { loadPending(); loadOwner(); }
+    claimOAuthInvite();
   }
 
   /* ---- drawing ---- */
@@ -733,6 +780,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     }
     ctx.restore();
   }
+  window.__dbPaintFestive = paintFestive;
   function drawBrick(ctx, x, y, w, h, color, mine, finish, ins, photo) {
     ctx.fillStyle = finish === 'gold' ? '#d9a93b' : color; ctx.fillRect(x, y, w, h);
     if (photo) {
@@ -832,6 +880,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       var site = pr.website;
       act('Visit website \u2197', function () { window.open(site, '_blank', 'noopener,noreferrer'); });
     }
+    socialLinks(pr).forEach(function (s) { act(s.label + ' \u2197', function () { window.open(s.url, '_blank', 'noopener,noreferrer'); }); });
     if (profile && profile.is_admin) {
       if (h.b.message) act('Remove writing', function () { adminBrick(bid, 'clear_message'); });
       if (h.b.photo_url && h.b.photo_status !== 'rejected') act('Hide photo', function () { adminBrick(bid, 'hide_photo'); });
@@ -931,6 +980,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var bd = [supporterActive() ? 'Supporter' : '', badgeFor(profile.longest_streak || 0)].filter(Boolean).join(' \u00b7 ');
     $('badgeText').hidden = !bd; $('badgeText').textContent = bd;
     $('inviteLink').textContent = inviteLink();
+    [['soIg', 'instagram'], ['soTt', 'tiktok'], ['soFb', 'facebook']].forEach(function (f) { if (document.activeElement !== $(f[0])) $(f[0]).value = profile[f[1]] ? (f[1] === 'facebook' ? '' : '@') + profile[f[1]] : ''; });
     $('inviteCount').textContent = (profile.referrals_joined || 0) + ' joined';
     var sa = supporterActive();
     $('supActive').hidden = !sa;
@@ -1487,6 +1537,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     catch (e) { toast('Copy failed. Press and hold the link to copy it.'); }
   }
   $('inviteCopy').addEventListener('click', function () { if (profile) copyText(inviteLink()); });
+  $('inviteMore').addEventListener('click', function () { $('shareSheet').hidden = false; });
   $('inviteShare').addEventListener('click', async function () {
     if (!profile) return;
     if (navigator.share) { try { await navigator.share({ title: 'Daily Brick', text: inviteText(), url: inviteLink() }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
@@ -1494,53 +1545,69 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   });
 
   /* ---- share pictures ---- */
-  async function makeSharePicture() {
+  async function makeSharePicture(story) {
     try { await Promise.all([document.fonts.load('800 80px Cinzel'), document.fonts.load('600 40px Figtree'), document.fonts.load('600 30px "IBM Plex Mono"')]); } catch (e) {}
-    var W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+    var W = 1080, H = story ? 1920 : 1350, oy = story ? 320 : 0, c = document.createElement('canvas'); c.width = W; c.height = H;
     var x = c.getContext('2d');
     var g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0a1a24'); g.addColorStop(.55, '#123542'); g.addColorStop(1, '#0a1a24');
     x.fillStyle = g; x.fillRect(0, 0, W, H);
     // logo
-    var s = 3.2, lx = 80, ly = 80;
+    var s = 3.2, lx = 80, ly = 80 + (story ? 170 : 0);
     [[2, 4, '#ff9a62'], [16, 4, '#e0713a'], [9, 13, '#ff9a62'], [2, 22, '#e0713a'], [16, 22, '#ff9a62']].forEach(function (b) { x.fillStyle = b[2]; x.fillRect(lx + b[0] * s, ly + b[1] * s, 12 * s, 7 * s); });
     x.fillStyle = '#f1f7f4'; x.font = '800 54px Cinzel, Georgia, serif'; x.textBaseline = 'middle'; x.textAlign = 'left';
     x.fillText('Daily Brick', lx + 120, ly + 48);
     var st = liveStreak(), mine = bricks.filter(function (b) { return user && b.user_id === user.id; }).pop();
     x.textAlign = 'center';
     x.fillStyle = '#ffd7b0'; x.font = '600 30px "IBM Plex Mono", monospace';
-    x.fillText(st > 1 ? 'MY STREAK' : 'MY BRICK IS ON THE WALL', W / 2, 300);
+    x.fillText(st > 1 ? 'MY STREAK' : 'MY BRICK IS ON THE WALL', W / 2, 300 + oy);
     x.fillStyle = '#ff9a62'; x.font = '800 ' + (st > 1 ? 150 : 96) + 'px Cinzel, Georgia, serif';
-    x.fillText(st > 1 ? st + ' days' : 'I built today', W / 2, st > 1 ? 410 : 400);
+    x.fillText(st > 1 ? st + ' days' : 'I built today', W / 2, (st > 1 ? 410 : 400) + oy);
     // the brick
-    var bw = 620, bh = 290, bx = (W - bw) / 2, by = 520;
+    var bw = 620, bh = 290, bx = (W - bw) / 2, by = 520 + oy;
     drawBrick(x, bx, by, bw, bh, mine ? mine.color : sel.c, false, mine ? mine.finish : 'plain', mine ? mine.message : '', null);
     x.strokeStyle = '#f1f7f4'; x.lineWidth = 8; x.strokeRect(bx + 4, by + 4, bw - 8, bh - 8);
     // a strip of wall underneath
     var cols = ['#d9714e', '#d4a76a', '#5fa3b0', '#4f6e7c', '#6a8f5a', '#d9973a', '#cf8585', '#5b6e7a'];
-    for (var r = 0; r < 3; r++) for (var k = -1; k < 9; k++) { var wx = k * 130 + (r % 2 ? 65 : 0), wy = 880 + r * 64; x.fillStyle = cols[(k + r * 3 + 16) % 8]; x.fillRect(wx + 4, wy, 122, 56); x.fillStyle = 'rgba(0,0,0,.22)'; x.fillRect(wx + 4, wy + 46, 122, 10); }
+    for (var r = 0; r < 3; r++) for (var k = -1; k < 9; k++) { var wx = k * 130 + (r % 2 ? 65 : 0), wy = 880 + oy + r * 64; x.fillStyle = cols[(k + r * 3 + 16) % 8]; x.fillRect(wx + 4, wy, 122, 56); x.fillStyle = 'rgba(0,0,0,.22)'; x.fillRect(wx + 4, wy + 46, 122, 10); }
     x.fillStyle = '#f1f7f4'; x.font = '600 40px Figtree, system-ui, sans-serif';
-    x.fillText('Help build a wall longer than', W / 2, 1110);
-    x.fillText('the Great Wall of China.', W / 2, 1162);
+    x.fillText('Help build a wall longer than', W / 2, 1110 + oy);
+    x.fillText('the Great Wall of China.', W / 2, 1162 + oy);
     x.fillStyle = '#ff9a62'; x.font = '600 34px "IBM Plex Mono", monospace';
-    x.fillText(location.host + ((profile && profile.ref_code) ? '/?ref=' + profile.ref_code : ''), W / 2, 1250);
+    x.fillText(location.host + ((profile && profile.ref_code) ? '/?ref=' + profile.ref_code : ''), W / 2, 1250 + oy);
+    if (story) { x.fillStyle = '#8fb3b5'; x.font = '600 34px Figtree, system-ui, sans-serif'; x.fillText('One free brick a day. Join me!', W / 2, 1320 + oy); }
     return await new Promise(function (res) { c.toBlob(res, 'image/png'); });
   }
-  async function sharePicture() {
+  async function sharePicture(story) {
     if (!user) { show('me'); return; }
-    var blob = await makeSharePicture();
+    var blob = await makeSharePicture(story === true);
     if (!blob) { toast('The picture could not be made. Try again.'); return; }
-    var file = new File([blob], 'daily-brick.png', { type: 'image/png' });
+    var file = new File([blob], story === true ? 'daily-brick-story.png' : 'daily-brick.png', { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], text: inviteText() + ' ' + inviteLink() }); $('shareCard').hidden = true; return; }
+      try { await navigator.share({ files: [file], text: inviteText() + ' ' + inviteLink() }); $('shareCard').hidden = true; closeSheet(); return; }
       catch (e) { if (e && e.name === 'AbortError') return; }
     }
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daily-brick.png';
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
     toast('Picture saved. Share it from your photos or downloads.');
   }
-  $('shareBtn').addEventListener('click', sharePicture);
-  $('shareStreak').addEventListener('click', sharePicture);
+  function openSheet() { if (!user) { show('me'); return; } $('shareSheet').hidden = false; }
+  function closeSheet() { $('shareSheet').hidden = true; }
+  $('shareBtn').addEventListener('click', openSheet);
+  $('shareStreak').addEventListener('click', openSheet);
+  $('ssClose').addEventListener('click', closeSheet);
+  $('shareSheet').addEventListener('click', function (e) { if (e.target === $('shareSheet')) closeSheet(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('shareSheet').hidden) closeSheet(); });
+  document.querySelectorAll('[data-ss]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var k = b.getAttribute('data-ss'), msg = inviteText() + ' ' + inviteLink();
+      if (k === 'post') sharePicture(false);
+      else if (k === 'story') sharePicture(true);
+      else if (k === 'wa') window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener,noreferrer');
+      else if (k === 'fb') window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(inviteLink()), '_blank', 'noopener,noreferrer');
+      else if (k === 'copy') copyText(inviteLink());
+    });
+  });
   $('shareClose').addEventListener('click', function () { $('shareCard').hidden = true; });
 
   /* ---- simple purchases: supporter pass ---- */
@@ -1685,6 +1752,58 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   });
   if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) {
     if (e.data && e.data.type === 'open' && e.data.hash === '#place') show(user ? 'place' : 'me');
+  });
+
+  /* ---- Google / Facebook sign-in (buttons only show once switched on in Supabase) ---- */
+  (async function () {
+    try {
+      var r = await fetch(SUPABASE_URL + '/auth/v1/settings', { headers: { apikey: SUPABASE_KEY } });
+      var ext = ((await r.json()) || {}).external || {}, any = false;
+      document.querySelectorAll('.oauth-btn').forEach(function (b) { var on = !!ext[b.getAttribute('data-provider')]; b.hidden = !on; any = any || on; });
+      $('oauthBox').hidden = !any;
+    } catch (e) {}
+  })();
+  document.querySelectorAll('.oauth-btn').forEach(function (b) {
+    b.addEventListener('click', async function () {
+      var code = refCode(); if (code) { try { localStorage.setItem('db_ref', code); } catch (e) {} }
+      try { localStorage.setItem('db_oauth', '1'); } catch (e) {}
+      b.disabled = true;
+      var r = await sb.auth.signInWithOAuth({ provider: b.getAttribute('data-provider'), options: { redirectTo: location.origin + '/' } });
+      if (r.error) { b.disabled = false; toast(friendly(r.error.message)); }
+    });
+  });
+  // after coming back from Google/Facebook: give the invite reward to whoever invited them
+  async function claimOAuthInvite() {
+    var flag = null; try { flag = localStorage.getItem('db_oauth'); } catch (e) {}
+    if (!flag || !user || !profile) return;
+    try { localStorage.removeItem('db_oauth'); } catch (e) {}
+    var code = refCode();
+    if (code && !profile.referred_by && !profile.total_bricks) {
+      var r = await sb.rpc('claim_referral', { p_code: code });
+      if (r.data === true) { try { localStorage.removeItem('db_ref'); } catch (e) {} toast('Welcome! Place your first brick to get your free Glazed brick.'); }
+    }
+  }
+
+  /* ---- social handles ---- */
+  $('soSave').addEventListener('click', async function () {
+    if (!user) return;
+    var btn = $('soSave'); btn.disabled = true; btn.textContent = 'Saving\u2026';
+    var r = await sb.rpc('set_social_handles', { p_instagram: $('soIg').value, p_tiktok: $('soTt').value, p_facebook: $('soFb').value });
+    btn.disabled = false; btn.textContent = 'Save my socials';
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    if (r.data) profile = r.data;
+    renderRewards(); loadWall(); toast('Saved. People who tap your bricks can follow you now.');
+  });
+  var SOCIAL = [['instagram', 'Instagram', 'https://www.instagram.com/'], ['tiktok', 'TikTok', 'https://www.tiktok.com/@'], ['facebook', 'Facebook', 'https://www.facebook.com/']];
+  function socialLinks(pr) {
+    return SOCIAL.filter(function (s) { return pr && pr[s[0]] && /^[A-Za-z0-9._]{1,50}$/.test(pr[s[0]]); }).map(function (s) { return { label: s[1], url: s[2] + encodeURIComponent(pr[s[0]]) }; });
+  }
+
+  /* ---- today's reel (owner) ---- */
+  var reelScript = null;
+  $('makeReel').addEventListener('click', function () {
+    if (!reelScript) reelScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/reel.js?v=1'; s.onload = res; s.onerror = function () { reelScript = null; rej(); }; document.head.appendChild(s); });
+    reelScript.then(function () { window.DailyBrickReel.open({ sb: sb }); }, function () { toast('The reel maker could not load. Check your connection.'); });
   });
 
   /* ---- 3D wall ---- */
