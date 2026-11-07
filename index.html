@@ -285,6 +285,8 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 .ss-grid button { min-height: 72px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--night); color: var(--ink); text-align: left; display: grid; gap: 3px; align-content: center; font: inherit; }
 .ss-grid button b { font-size: 15px; } .ss-grid button span { font-size: 12.5px; color: var(--muted); }
 .ss-grid button[data-ss="post"] { border-color: var(--coral); }
+.subbox { display: grid; gap: 8px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.subbox .btn.warn { border-color: #e06a5a; color: #ffb3a8; }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .mod a { color: var(--mint); word-break: break-all; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
@@ -411,12 +413,13 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
           <ul><li>One brick every day</li><li>8 colours</li><li>Write your initials or a short word on it</li><li>Streaks, rewards and your spot on the wall</li></ul></div>
         <div class="plan hl"><div class="row"><h3>Brick extras</h3><span class="amt">R19 each</span></div>
           <ul><li>Gold leaf, glazed or carved finish</li><li>Upgrade today's brick even after placing it</li><li>Pay only on the days you want it (about $1)</li><li>Put a photo or picture on your brick</li></ul></div>
-        <div class="plan" id="bizPlan"><div class="row"><h3>Business</h3><span class="amt">R89 / 30 days</span></div>
-          <ul><li>Up to 10 bricks a day, every day</li><li>Your logo and name across your bricks on the wall</li><li>No contract. Each payment adds 30 days</li></ul>
+        <div class="plan" id="bizPlan"><div class="row"><h3>Business</h3><span class="amt">R89 / month</span></div>
+          <ul><li>Up to 10 bricks a day, every day</li><li>Your logo built into the wall, with a link to your website</li><li>Renews every month. Cancel anytime, right here</li></ul>
           <div class="form" id="bizBuy">
             <label class="label" for="bizNameIn">Business name</label>
             <input type="text" id="bizNameIn" maxlength="24" placeholder="Your business name" autocomplete="organization">
-            <button class="btn" type="button" id="bizBuyBtn">Get Business for R89</button>
+            <button class="btn" type="button" id="bizBuyBtn">Subscribe for R89 a month</button>
+            <p class="note">Charged to your card every month until you cancel. Cancel anytime on this screen.</p>
           </div>
           <div class="form" id="bizManage" hidden>
             <p class="ok" id="bizActive"></p>
@@ -430,13 +433,16 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
             <input type="text" id="bizWeb" maxlength="200" placeholder="yourbusiness.co.za" autocomplete="url" inputmode="url">
             <p class="note" id="bizWebStatus">People who tap your logo on the wall get a button to visit it.</p>
             <button class="btn" type="button" id="bizSave">Save business details</button>
-            <button class="btn ghost" type="button" id="bizRenew">Add 30 more days for R89</button>
+            <div class="subbox"><p class="note" id="bizSubText"></p>
+              <div class="acts2"><button class="btn ghost" type="button" id="bizSubBtn"></button><button class="btn ghost" type="button" id="bizCardBtn" hidden>Update card</button></div></div>
           </div>
         </div>
-        <div class="plan" id="supPlan"><div class="row"><h3>Supporter pass</h3><span class="amt">R29 / 30 days</span></div>
-          <ul><li>Gold leaf, glazed and carved finishes included, every day</li><li>Christmas finishes included in the festive season</li><li>A streak freeze with every pass</li><li>A Supporter badge on your bricks</li><li>Helps keep Daily Brick growing. No contract</li></ul>
+        <div class="plan" id="supPlan"><div class="row"><h3>Supporter pass</h3><span class="amt">R29 / month</span></div>
+          <ul><li>Gold leaf, glazed and carved finishes included, every day</li><li>Christmas finishes included in the festive season</li><li>A streak freeze with every pass</li><li>A Supporter badge on your bricks</li><li>Helps keep Daily Brick growing</li><li>Renews every month. Cancel anytime, right here</li></ul>
           <p class="ok" id="supActive" hidden></p>
-          <button class="btn" type="button" id="supBuy">Become a supporter for R29</button>
+          <button class="btn" type="button" id="supBuy">Subscribe for R29 a month</button>
+          <div class="subbox" id="supSub" hidden><p class="note" id="supSubText"></p>
+            <div class="acts2"><button class="btn ghost" type="button" id="supCancel">Cancel subscription</button><button class="btn ghost" type="button" id="supCard" hidden>Update card</button></div></div>
         </div>
       </div>
       <p class="note">Prices are in South African rand. Payments are handled securely by Paystack. Read the <a href="/legal.html#refunds">refund policy</a>.</p>
@@ -729,6 +735,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     profile = r.error ? null : r.data;
     var c = await sb.from('bricks').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('placed_on', todayUTC());
     todayCount = c.error ? (profile && profile.last_brick_date === todayUTC() ? 1 : 0) : (c.count || 0);
+    await loadSubs();
     render(); renderBiz();
     if (profile && profile.is_admin && !$('tab-me').hidden) { loadPending(); loadOwner(); }
     claimOAuthInvite();
@@ -996,8 +1003,8 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     $('inviteCount').textContent = (profile.referrals_joined || 0) + ' joined';
     var sa = supporterActive();
     $('supActive').hidden = !sa;
-    if (sa) $('supActive').textContent = 'You\'re a supporter until ' + new Date(profile.supporter_until).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) + '. Thank you!';
-    $('supBuy').textContent = sa ? 'Add 30 more days for R29' : 'Become a supporter for R29';
+    if (sa) $('supActive').textContent = 'You\'re a supporter. Thank you!';
+    renderSubs();
     var fz = frozenDays();
     if (fz) $('resetNote').textContent = 'You missed ' + (fz === 1 ? 'a day' : fz + ' days') + '. Place a brick today and ' + (fz === 1 ? 'a freeze' : fz + ' freezes') + ' will save your streak.';
   }
@@ -1144,7 +1151,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
         toast('Payment received. Switching on your business plan…');
         var ok = await verifyPayment(ref);
         await loadProfile(); await loadWall();
-        if (ok) { confetti(); toast(wasActive ? '30 days added. Thank you!' : 'Business plan active! Add your logo, then place up to 10 bricks a day.'); }
+        if (ok) { confetti(); toast(wasActive ? 'Monthly renewal is on. Thank you!' : 'Business plan active! It renews monthly. Add your logo, then place up to 10 bricks a day.'); }
         else toast('Payment received. Your plan will switch on in a minute or two.');
       },
       onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
@@ -1157,9 +1164,73 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     if (!name) { toast('Enter your business name first.'); $('bizNameIn').focus(); return; }
     payBusiness(name);
   });
-  $('bizRenew').addEventListener('click', function () {
-    payBusiness((profile && profile.business_name) || $('bizNameEdit').value.trim() || 'My business');
+  /* ---- monthly subscriptions: status, cancel and update card ---- */
+  var subs = {};
+  async function loadSubs() {
+    subs = {};
+    if (!user) return;
+    var r = await sb.from('subscriptions').select('kind,status,next_payment_date,created_at').eq('user_id', user.id).order('created_at', { ascending: false });
+    (r.data || []).forEach(function (s) { if (!subs[s.kind]) subs[s.kind] = s; });
+  }
+  function longDate(d) { return new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }); }
+  function subLive(s) { return s && (s.status === 'active' || s.status === 'pending' || s.status === 'attention'); }
+  function renderSubs() {
+    if (!profile) return;
+    // business (only shown while the plan is active; the buy form shows otherwise)
+    var b = subs.business, bt = $('bizSubText'), bb = $('bizSubBtn');
+    bb.classList.remove('warn'); bb.dataset.armed = '';
+    $('bizCardBtn').hidden = !(subLive(b) && b.status !== 'pending');
+    if (subLive(b)) {
+      bt.textContent = b.status === 'attention' ? 'Your last monthly payment didn\'t go through. Update your card to keep your plan.'
+        : b.status === 'pending' ? 'Monthly renewal is being set up. R89 a month.'
+        : 'Renews automatically on ' + longDate(b.next_payment_date || profile.business_until) + ' for R89.';
+      bb.textContent = 'Cancel subscription'; bb.dataset.mode = 'cancel';
+    } else {
+      bt.textContent = bizActive() ? 'Your plan doesn\'t renew. It ends on ' + longDate(profile.business_until) + '.' : '';
+      bb.textContent = 'Turn on monthly renewal (R89 a month)'; bb.dataset.mode = 'buy';
+    }
+    // supporter
+    var s = subs.supporter, sa = supporterActive();
+    $('supSub').hidden = !subLive(s) && !sa;
+    $('supBuy').hidden = subLive(s);
+    $('supBuy').textContent = sa ? 'Turn on monthly renewal (R29 a month)' : 'Subscribe for R29 a month';
+    $('supCard').hidden = !(subLive(s) && s.status !== 'pending');
+    $('supCancel').hidden = !subLive(s); $('supCancel').classList.remove('warn'); $('supCancel').dataset.armed = ''; $('supCancel').textContent = 'Cancel subscription';
+    $('supSubText').textContent = subLive(s)
+      ? (s.status === 'attention' ? 'Your last monthly payment didn\'t go through. Update your card to keep your pass.'
+        : s.status === 'pending' ? 'Monthly renewal is being set up. R29 a month.'
+        : 'Renews automatically on ' + longDate(s.next_payment_date || profile.supporter_until) + ' for R29.')
+      : sa ? 'Your pass doesn\'t renew. It ends on ' + longDate(profile.supporter_until) + '.' : '';
+  }
+  // cancelling needs two taps, so nobody cancels by accident
+  async function cancelSub(kind, btn) {
+    if (!btn.dataset.armed) {
+      btn.dataset.armed = '1'; btn.classList.add('warn'); btn.textContent = 'Tap again to cancel';
+      clearTimeout(btn._t); btn._t = setTimeout(function () { btn.dataset.armed = ''; btn.classList.remove('warn'); btn.textContent = 'Cancel subscription'; }, 5000);
+      return;
+    }
+    clearTimeout(btn._t); btn.disabled = true; btn.textContent = 'Cancelling\u2026';
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'cancel-sub', kind: kind } });
+    btn.disabled = false;
+    if (r.error || !r.data || !r.data.ok) { toast(friendly(r.error ? await fnError(r.error) : 'Could not cancel. Please try again.')); renderSubs(); return; }
+    await loadProfile();
+    var until = kind === 'business' ? profile.business_until : profile.supporter_until;
+    toast('Cancelled. You won\'t be charged again. Your ' + (kind === 'business' ? 'plan' : 'pass') + ' keeps working until ' + longDate(until) + '.');
+  }
+  async function updateCard(kind, btn) {
+    btn.disabled = true;
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'manage-sub', kind: kind } });
+    btn.disabled = false;
+    if (r.error || !r.data || !r.data.link) { toast(friendly(r.error ? await fnError(r.error) : 'Could not open the card page.')); return; }
+    window.open(r.data.link, '_blank', 'noopener,noreferrer');
+  }
+  $('bizSubBtn').addEventListener('click', function () {
+    if (this.dataset.mode === 'cancel') cancelSub('business', this);
+    else payBusiness((profile && profile.business_name) || $('bizNameEdit').value.trim() || 'My business');
   });
+  $('bizCardBtn').addEventListener('click', function () { updateCard('business', this); });
+  $('supCancel').addEventListener('click', function () { cancelSub('supporter', this); });
+  $('supCard').addEventListener('click', function () { updateCard('supporter', this); });
 
   /* business name and logo */
   var logoBlob = null;
@@ -1639,7 +1710,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
     });
   }
-  $('supBuy').addEventListener('click', function () { payItem('supporter', 'You\'re a supporter! All finishes are now included. Thank you.'); });
+  $('supBuy').addEventListener('click', function () { payItem('supporter', 'You\'re a supporter! All finishes are included, and it renews monthly. Thank you.'); });
 
   /* ---- daily reminders (push notifications) ---- */
   var pushOK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
