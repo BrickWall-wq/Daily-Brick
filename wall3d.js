@@ -345,6 +345,53 @@
     });
 
     /* photos and writing on the brick faces */
+    // Christmas finishes: snow-capped, candy cane and fairy lights (same drawing on the flat wall and the 3D wall)
+    function lightColor(hex) { var n = parseInt(String(hex || '#888888').slice(1), 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255 > 0.78; }
+    function paintFestive(ctx, x, y, w, h, finish, color) {
+      if (finish !== 'snow' && finish !== 'candy' && finish !== 'lights') return;
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+      if (finish === 'candy') {
+        ctx.fillStyle = '#fbf6f0'; ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = lightColor(color) ? '#c62f3b' : color;
+        var sw = h * 0.3, gap = h * 0.72;
+        for (var k = -h; k < w + h; k += gap) { ctx.beginPath(); ctx.moveTo(x + k, y + h); ctx.lineTo(x + k + sw, y + h); ctx.lineTo(x + k + sw + h, y); ctx.lineTo(x + k + h, y); ctx.closePath(); ctx.fill(); }
+        var gl = ctx.createLinearGradient(x, y, x, y + h); gl.addColorStop(0, 'rgba(255,255,255,.35)'); gl.addColorStop(.45, 'rgba(255,255,255,0)'); ctx.fillStyle = gl; ctx.fillRect(x, y, w, h);
+      }
+      if (finish === 'snow') {
+        var base = y + h * 0.26, bumps = Math.max(3, Math.round(w / (h * 0.55)));
+        ctx.beginPath(); ctx.moveTo(x, y);
+        ctx.lineTo(x + w, y); ctx.lineTo(x + w, base);
+        for (var b = bumps; b >= 0; b--) {
+          var bx = x + w * b / bumps, drip = (b % 3 === 1) ? h * 0.14 : 0;
+          ctx.quadraticCurveTo(bx + w / bumps / 2, base + h * 0.1 + drip, bx, base);
+        }
+        ctx.closePath(); ctx.fillStyle = '#f7fbff'; ctx.fill();
+        ctx.strokeStyle = 'rgba(120,150,185,.45)'; ctx.lineWidth = Math.max(1, h * 0.035); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        [[.18, .62], [.42, .8], [.66, .58], [.86, .78], [.3, .45]].forEach(function (p, i) {
+          ctx.beginPath(); ctx.arc(x + w * p[0], y + h * p[1], Math.max(1.2, h * (i % 2 ? 0.045 : 0.065)), 0, 7); ctx.fill();
+        });
+      }
+      if (finish === 'lights') {
+        var cols = ['#ff4d4d', '#ffd23f', '#4dd27a', '#4db8ff', '#ff8adf'];
+        var x0 = x - w * 0.05, x1 = x + w * 1.05, yTop = y + h * 0.2, sag = h * 0.42;
+        function pt(t) { return [x0 + (x1 - x0) * t, yTop + sag * 4 * t * (1 - t)]; }
+        ctx.strokeStyle = '#1d3b2a'; ctx.lineWidth = Math.max(1, h * 0.045); ctx.beginPath();
+        for (var s = 0; s <= 24; s++) { var q = pt(s / 24); if (s) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }
+        ctx.stroke();
+        var n = Math.max(4, Math.round(w / (h * 0.45)));
+        for (var i = 0; i < n; i++) {
+          var p = pt((i + 0.5) / n), c = cols[i % cols.length], r = h * 0.1;
+          var g = ctx.createRadialGradient(p[0], p[1] + r, 0, p[0], p[1] + r, r * 3.2);
+          g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.globalAlpha = 0.55; ctx.fillStyle = g; ctx.fillRect(p[0] - r * 3.2, p[1] + r - r * 3.2, r * 6.4, r * 6.4); ctx.globalAlpha = 1;
+          ctx.fillStyle = '#1d3b2a'; ctx.fillRect(p[0] - r * 0.45, p[1] - r * 0.2, r * 0.9, r * 0.6);
+          ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(p[0], p[1] + r * 1.05, r * 0.7, r, 0, 0, 7); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.arc(p[0] - r * 0.22, p[1] + r * 0.75, r * 0.22, 0, 7); ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
     function photoOf(b) {
       if (!b.photo_url) return null;
       if (b.photo_status === 'approved' || (me && b.user_id === me && b.photo_status === 'pending')) return data.photoUrl(b.photo_url);
@@ -353,7 +400,8 @@
     var faceMats = [];
     (function () {
       var withPhoto = [], withText = [];
-      L.bricks.forEach(function (s, i) { if (photoOf(s.b)) withPhoto.push(i); else if (s.b.message) withText.push(i); });
+      var FEST = { snow: 1, candy: 1, lights: 1 };
+      L.bricks.forEach(function (s, i) { if (photoOf(s.b)) withPhoto.push(i); else if (s.b.message || FEST[s.b.finish]) withText.push(i); });
       var pick = withPhoto.slice(-Math.round(MAX_FACES / 2));
       pick = pick.concat(withText.slice(-(MAX_FACES - pick.length))).sort(function (a, b) { return a - b; });
       if (!pick.length) return;
@@ -364,6 +412,7 @@
         g.save(); g.beginPath(); g.rect(cx, cy, CW, CH); g.clip();
         g.fillStyle = gold ? '#d9a93b' : tints[s.idx]; g.fillRect(cx, cy, CW, CH);
         if (img) { var k = Math.max(CW / img.width, CH / img.height), iw = img.width * k, ih = img.height * k; g.drawImage(img, cx + (CW - iw) / 2, cy + (CH - ih) / 2, iw, ih); }
+        paintFestive(g, cx, cy, CW, CH, b.finish, b.color);
         if (gold) { var gr = g.createLinearGradient(cx, cy, cx + CW, cy + CH); gr.addColorStop(0, 'rgba(255,245,200,.5)'); gr.addColorStop(.5, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(255,240,180,.3)'); g.fillStyle = gr; g.fillRect(cx, cy, CW, CH); }
         g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(cx, cy + CH - 5, CW, 5);
         if (b.message) {
@@ -468,7 +517,7 @@
       if (!hit) { tip.hidden = true; return; }
       if (hit.object.userData.emb) { var e = hit.object.userData.emb; showTip('<strong>' + esc(e.name) + '</strong> (business) · ' + e.count + ' bricks on ' + esc(e.day) + (e.site ? '<br>' + siteLink(e) : ''), e.site ? 9000 : 5000); return; }
       var s = L.bricks[hit.instanceId]; if (!s) return;
-      var ph = photoOf(s.b), p = data.profiles[s.b.user_id] || {}, fin = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved' }[s.b.finish];
+      var ph = photoOf(s.b), p = data.profiles[s.b.user_id] || {}, fin = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights' }[s.b.finish];
       showTip('<strong>' + (me && s.b.user_id === me ? 'Your brick' : esc(p.display_name || 'A builder')) + '</strong>' + (fin ? ' · ' + fin : '') + (s.b.message ? ' · “' + esc(s.b.message) + '”' : '') + ' · placed ' + esc(s.b.placed_on)
         + (ph ? (s.b.photo_status === 'pending' ? ' · photo waiting for approval' : '') + '<img src="' + esc(ph) + '" alt="Photo on this brick" style="display:block;width:100%;max-height:38vh;object-fit:cover;border-radius:8px;margin-top:8px">' : ''), ph ? 9000 : 5000);
     });
