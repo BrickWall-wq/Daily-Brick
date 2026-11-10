@@ -201,13 +201,14 @@
     var root = document.createElement('div'); root.className = 'reel'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', "Today's reel");
     root.innerHTML = '<div class="reel-top"><b>Today’s reel</b><button class="reel-x" type="button" aria-label="Close">×</button></div>' +
       '<canvas width="1080" height="1920"></canvas>' +
-      '<div class="reel-acts"><p class="reel-note" data-r="note">Preview. Tap Record to make the video (15 seconds, with music). Keep this screen open while it records.</p>' +
-      '<div class="row"><button type="button" data-r="style">Another style</button><button type="button" class="go" data-r="rec">Record video</button></div>' +
+      '<div class="reel-acts"><p class="reel-note" data-r="note">Preview. Tap Make video for a 15-second MP4 with music. Keep this screen open while it\u2019s made.</p>' +
+      '<div class="row"><button type="button" data-r="style">Another style</button><button type="button" class="go" data-r="rec">Make video</button></div>' +
       '<div class="row" data-r="done" hidden><button type="button" data-r="share">Share</button><button type="button" data-r="save">Save video</button></div></div>';
     document.body.appendChild(root); return root;
   }
   function loop() {
     if (!st) return;
+    if (st.busy) { st.raf = requestAnimationFrame(loop); return; }
     var t = st.rec ? (performance.now() - st.recStart) / 1000 : ((performance.now() - st.t0) / 1000) % DUR;
     draw(st.g, Math.min(t, DUR), st.d);
     if (st.rec && t >= DUR + 0.15) { finishRec(); }
@@ -219,7 +220,92 @@
     for (var i = 0; i < types.length; i++) if (window.MediaRecorder && MediaRecorder.isTypeSupported(types[i])) return types[i];
     return '';
   }
-  function startRec() {
+  /* ---------- making the video: built frame by frame as a proper MP4 (correct length, smooth, H.264) ---------- */
+  function loadMuxer() {
+    if (window.Mp4Muxer) return Promise.resolve();
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.min.js';
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+  }
+  async function pickVideoCodec() {
+    if (!window.VideoEncoder || !window.VideoFrame) return null;
+    var list = ['avc1.640028', 'avc1.4D4028', 'avc1.42E028'];
+    for (var i = 0; i < list.length; i++) {
+      try { var s = await VideoEncoder.isConfigSupported({ codec: list[i], width: W, height: H, bitrate: 6000000, framerate: FPS }); if (s.supported) return list[i]; } catch (e) {}
+    }
+    return null;
+  }
+  async function pickAudioCodec() {
+    if (!window.AudioEncoder || !window.AudioData || !window.OfflineAudioContext) return null;
+    var list = [['mp4a.40.2', 'aac'], ['opus', 'opus']];
+    for (var i = 0; i < list.length; i++) {
+      try { var s = await AudioEncoder.isConfigSupported({ codec: list[i][0], sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 }); if (s.supported) return { codec: list[i][0], mux: list[i][1] }; } catch (e) {}
+    }
+    return null;
+  }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  async function makeMp4(vcodec, acodec) {
+    await loadMuxer();
+    var target = new Mp4Muxer.ArrayBufferTarget(), failed = null;
+    var muxer = new Mp4Muxer.Muxer({ target: target, video: { codec: 'avc', width: W, height: H, frameRate: FPS },
+      audio: acodec ? { codec: acodec.mux, numberOfChannels: 2, sampleRate: 48000 } : undefined, fastStart: 'in-memory', firstTimestampBehavior: 'offset' });
+    // music first (made offline, so it is exactly 15 seconds)
+    if (acodec) {
+      var oac = new OfflineAudioContext(2, Math.ceil(48000 * DUR), 48000);
+      music(oac, oac.destination, 0.05, st.d.xmas);
+      var buf = await oac.startRendering();
+      var ae = new AudioEncoder({ output: function (c, m) { muxer.addAudioChunk(c, m); }, error: function (e) { failed = e; } });
+      ae.configure({ codec: acodec.codec, sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 });
+      var Lc = buf.getChannelData(0), Rc = buf.numberOfChannels > 1 ? buf.getChannelData(1) : Lc, N = 1024;
+      for (var i = 0; i < Lc.length; i += N) {
+        var n = Math.min(N, Lc.length - i), data = new Float32Array(n * 2);
+        data.set(Lc.subarray(i, i + n), 0); data.set(Rc.subarray(i, i + n), n);
+        var ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(i / 48000 * 1e6), data: data });
+        ae.encode(ad); ad.close();
+      }
+      await ae.flush(); ae.close();
+    }
+    // then every frame of the picture
+    var ve = new VideoEncoder({ output: function (c, m) { muxer.addVideoChunk(c, m); }, error: function (e) { failed = e; } });
+    ve.configure({ codec: vcodec, width: W, height: H, bitrate: 6000000, framerate: FPS, avc: { format: 'avc' } });
+    var total = Math.round(DUR * FPS);
+    for (var f = 0; f < total; f++) {
+      if (!st) { try { ve.close(); } catch (e) {} return null; }
+      if (failed) throw failed;
+      draw(st.g, f / FPS, st.d);
+      var vf = new VideoFrame(st.canvas, { timestamp: Math.round(f * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+      ve.encode(vf, { keyFrame: f % (FPS * 2) === 0 }); vf.close();
+      while (ve.encodeQueueSize > 4) await wait(4);
+      if (f % 15 === 0) { st.note.textContent = 'Making your video\u2026 ' + Math.round(f / total * 100) + '%. Keep this screen open.'; await wait(0); }
+    }
+    await ve.flush(); ve.close();
+    if (failed) throw failed;
+    muxer.finalize();
+    return new Blob([target.buffer], { type: 'video/mp4' });
+  }
+  function done(blob, ext, extra) {
+    st.blob = blob;
+    st.file = new File([blob], 'daily-brick-reel-' + new Date().toISOString().slice(0, 10) + '.' + ext, { type: blob.type });
+    st.root.querySelector('[data-r=done]').hidden = false;
+    st.note.textContent = 'Done! Share it, or save it and post it from your gallery.' + (extra || '');
+    st.rb.disabled = false; st.rb.textContent = 'Make it again'; st.sb.disabled = false; st.busy = false; st.t0 = performance.now();
+  }
+  async function startRec() {
+    st.root.querySelector('[data-r=done]').hidden = true;
+    st.rb.disabled = true; st.sb.disabled = true; st.rb.textContent = 'Making\u2026'; st.note.textContent = 'Getting ready\u2026';
+    var vcodec = await pickVideoCodec();
+    if (vcodec) {
+      st.busy = true;
+      try {
+        var blob = await makeMp4(vcodec, await pickAudioCodec());
+        if (blob && st) { done(blob, 'mp4'); return; }
+        if (!st) return;
+      } catch (e) { if (!st) return; st.busy = false; }
+    }
+    startLiveRec();   // older phones: record the screen live instead
+  }
+  function startLiveRec() {
     if (!window.MediaRecorder || !st.canvas.captureStream) { st.note.textContent = 'This browser can’t record video. Try Chrome on your phone.'; return; }
     var type = pickType(), stream = st.canvas.captureStream(FPS);
     try {
@@ -233,11 +319,7 @@
     st.mr.ondataavailable = function (e) { if (e.data && e.data.size) st.chunks.push(e.data); };
     st.mr.onstop = function () {
       var ext = /mp4/.test(st.type) ? 'mp4' : 'webm';
-      st.blob = new Blob(st.chunks, { type: st.type.split(';')[0] });
-      st.file = new File([st.blob], 'daily-brick-reel-' + new Date().toISOString().slice(0, 10) + '.' + ext, { type: st.blob.type });
-      st.root.querySelector('[data-r=done]').hidden = false;
-      st.note.textContent = 'Done! Share it, or save it and post it from your gallery.' + (ext === 'webm' ? ' (Saved as .webm. If an app won’t take it, open it in CapCut and export.)' : '');
-      st.rb.disabled = false; st.rb.textContent = 'Record again'; st.sb.disabled = false;
+      done(new Blob(st.chunks, { type: st.type.split(';')[0] }), ext, ' This phone made a simpler video; if an app won\u2019t take it, open it in CapCut and export it again.');
       try { if (st.ac && st.ac.state !== 'closed') st.ac.close(); } catch (e) {}
     };
     st.rec = true; st.recStart = performance.now(); st.mr.start(500);
