@@ -104,7 +104,10 @@
   function fetchAll(sb) {
     var rows = [], page = 1000;
     function more(from) {
-      return sb.from('bricks').select('id,color,finish,message,photo_url,photo_status,user_id,placed_on,biz').order('id', { ascending: true }).range(from, from + page - 1).then(function (r) {
+      var base = 'id,color,finish,message,photo_url,photo_status,user_id,placed_on,biz';
+      return sb.from('bricks').select(base + ',country').order('id', { ascending: true }).range(from, from + page - 1).then(function (r) {
+        return r.error ? sb.from('bricks').select(base).order('id', { ascending: true }).range(from, from + page - 1) : r;
+      }).then(function (r) {
         if (r.error) throw r.error;
         rows = rows.concat(r.data || []);
         if ((r.data || []).length === page && rows.length < MAX_BRICKS) return more(from + page);
@@ -117,7 +120,10 @@
       var chunks = []; for (var i = 0; i < list.length; i += 200) chunks.push(list.slice(i, i + 200));
       return Promise.all(chunks.map(function (ch) {
         var base = 'id,display_name,business_name,logo_url,logo_status';
-        return sb.from('profiles').select(base + ',website,website_status,instagram,tiktok,facebook').in('id', ch).then(function (r) {
+        var withCountry = base + ',website,website_status,instagram,tiktok,facebook,country';
+        return sb.from('profiles').select(withCountry).in('id', ch).then(function (r) {
+          return r.error ? sb.from('profiles').select(base + ',website,website_status,instagram,tiktok,facebook').in('id', ch) : r;
+        }).then(function (r) {
           return r.error ? sb.from('profiles').select(base + ',website,website_status').in('id', ch) : r;
         }).then(function (r) {
           return r.error ? sb.from('profiles').select(base).in('id', ch) : r;
@@ -403,19 +409,20 @@
     var faceMats = [];
     (function () {
       var withPhoto = [], withText = [];
-      var FEST = { snow: 1, candy: 1, lights: 1 };
+      var FEST = { snow: 1, candy: 1, lights: 1, flag: 1 };
       L.bricks.forEach(function (s, i) { if (photoOf(s.b)) withPhoto.push(i); else if (s.b.message || FEST[s.b.finish]) withText.push(i); });
       var pick = withPhoto.slice(-Math.round(MAX_FACES / 2));
       pick = pick.concat(withText.slice(-(MAX_FACES - pick.length))).sort(function (a, b) { return a - b; });
       if (!pick.length) return;
       var A = 2048, CW = 192, CH = 84, COLS = Math.floor(A / CW), PER = COLS * Math.floor(A / CH);
       var FW = BL - 0.04, FH = BH - 0.09, FZ = BD / 2 + 0.008, v = new THREE.Vector3();
-      function drawCell(g, cx, cy, s, img) {
+      function drawCell(g, cx, cy, s, img, flag) {
         var b = s.b, gold = b.finish === 'gold';
         g.save(); g.beginPath(); g.rect(cx, cy, CW, CH); g.clip();
         g.fillStyle = gold ? '#d9a93b' : tints[s.idx]; g.fillRect(cx, cy, CW, CH);
         if (img) { var k = Math.max(CW / img.width, CH / img.height), iw = img.width * k, ih = img.height * k; g.drawImage(img, cx + (CW - iw) / 2, cy + (CH - ih) / 2, iw, ih); }
         paintFestive(g, cx, cy, CW, CH, b.finish, b.color);
+        if (b.finish === 'flag' && flag) { var fk = Math.max(CW / 640, CH / 480); g.drawImage(flag, cx + (CW - 640 * fk) / 2, cy + (CH - 480 * fk) / 2, 640 * fk, 480 * fk); }
         if (gold) { var gr = g.createLinearGradient(cx, cy, cx + CW, cy + CH); gr.addColorStop(0, 'rgba(255,245,200,.5)'); gr.addColorStop(.5, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(255,240,180,.3)'); g.fillStyle = gr; g.fillRect(cx, cy, CW, CH); }
         g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(cx, cy + CH - 5, CW, 5);
         if (b.message) {
@@ -435,6 +442,12 @@
           var s = L.bricks[i]; s.idx = i;
           var cx = (n % COLS) * CW, cy = Math.floor(n / COLS) * CH;
           drawCell(g, cx, cy, s, null);
+          var cc = s.b.country || (data.profiles[s.b.user_id] || {}).country;
+          if (s.b.finish === 'flag' && /^[A-Z]{2}$/.test(cc || '') && window.__dbFlagUrl) {
+            var fl = new Image(); fl.crossOrigin = 'anonymous';
+            fl.onload = function () { if (!state) return; try { drawCell(g, cx, cy, s, null, fl); tex.needsUpdate = true; } catch (e) {} };
+            fl.src = window.__dbFlagUrl(cc);
+          }
           var src = photoOf(s.b);
           if (src) {
             var im = new Image(); im.crossOrigin = 'anonymous';
@@ -527,8 +540,9 @@
       if (!hit) { tip.hidden = true; return; }
       if (hit.object.userData.emb) { var e = hit.object.userData.emb; showTip('<strong>' + esc(e.name) + '</strong> (business) · ' + e.count + ' bricks on ' + esc(e.day) + (e.site ? '<br>' + siteLink(e) : '') + socialLinks(e.prof), e.site || socialLinks(e.prof) ? 9000 : 5000); return; }
       var s = L.bricks[hit.instanceId]; if (!s) return;
-      var ph = photoOf(s.b), p = data.profiles[s.b.user_id] || {}, fin = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights' }[s.b.finish];
-      showTip('<strong>' + (me && s.b.user_id === me ? 'Your brick' : esc(p.display_name || 'A builder')) + '</strong>' + (fin ? ' · ' + fin : '') + (s.b.message ? ' · “' + esc(s.b.message) + '”' : '') + ' · placed ' + esc(s.b.placed_on)
+      var ph = photoOf(s.b), p = data.profiles[s.b.user_id] || {}, fin = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights', flag: 'Flag' }[s.b.finish];
+      var tcc = s.b.country || p.country;
+      showTip((/^[A-Z]{2}$/.test(tcc || '') && window.__dbFlagUrl ? '<img src="' + esc(window.__dbFlagUrl(tcc)) + '" alt="" width="20" height="15" style="vertical-align:-2px;margin-right:6px;border-radius:2px">' : '') + '<strong>' + (me && s.b.user_id === me ? 'Your brick' : esc(p.display_name || 'A builder')) + '</strong>' + (fin ? ' · ' + fin : '') + (s.b.message ? ' · “' + esc(s.b.message) + '”' : '') + ' · placed ' + esc(s.b.placed_on)
         + (ph ? (s.b.photo_status === 'pending' ? ' · photo waiting for approval' : '') + '<img src="' + esc(ph) + '" alt="Photo on this brick" style="display:block;width:100%;max-height:38vh;object-fit:cover;border-radius:8px;margin-top:8px">' : '')
         + socialLinks(p), ph || socialLinks(p) ? 9000 : 5000);
     });
