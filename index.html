@@ -287,6 +287,11 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
 .ss-grid button[data-ss="post"] { border-color: var(--coral); }
 .subbox { display: grid; gap: 8px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
 .subbox .btn.warn { border-color: #e06a5a; color: #ffb3a8; }
+img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; margin-right: 6px; box-shadow: 0 0 0 1px rgba(255,255,255,.15); object-fit: cover; }
+.flagbig img.flag { width: 32px; height: 24px; margin: 0; }
+#countrySel { width: 100%; min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--night); color: var(--ink); font: inherit; }
+.lb .nm img.flag { margin-right: 8px; }
+.swatch.flagc { position: relative; } .swatch.flagc::after { content: '\2691'; position: absolute; right: 3px; top: 1px; font-size: 11px; color: #fff; text-shadow: 0 0 2px #0b2230, 0 0 2px #0b2230; }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .mod a { color: var(--mint); word-break: break-all; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
@@ -463,6 +468,12 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       <ol class="lb" id="lbList"></ol>
       <p class="note" id="lbMe"></p>
     </div>
+    <div class="card">
+      <div class="row"><h3>Countries</h3><span class="note" id="ctyCount"></span></div>
+      <p class="note">Which country has placed the most bricks?</p>
+      <ol class="lb" id="ctyList"></ol>
+      <p class="note" id="ctyMe"></p>
+    </div>
     <div class="card"><h3>Streak milestones</h3><div class="miles" id="miles"></div></div>
   </section>
 
@@ -521,6 +532,13 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
         <div class="row"><span>Streak freezes: <b id="freezeN">0</b> of 5</span><button class="btn ghost" id="buyFreeze" type="button" style="width:auto;min-height:0">Buy one for R9</button></div>
         <p class="note">A freeze saves your streak when you miss a day, for up to 3 missed days in a row.</p>
         <button class="btn ghost" type="button" id="shareStreak" style="justify-self:start;width:auto;min-height:0">Share a picture of my streak</button>
+      </div>
+      <div class="rewards" id="countryBox">
+        <div class="row"><h3>Your country</h3><span class="flagbig" id="countryFlag"></span></div>
+        <p class="note" id="countryNote">Your flag shows on your bricks and on the boards, and your bricks count for your country.</p>
+        <label class="label" for="countrySel">Country</label>
+        <select id="countrySel"><option value="">Choose your country</option></select>
+        <button class="btn ghost" type="button" id="countrySave">Save my country</button>
       </div>
       <div class="rewards" id="socialBox">
         <div class="row"><h3>Your socials</h3><span class="tag">Optional</span></div>
@@ -662,7 +680,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   }
   var XMAS = xmasSeason();
   if (XMAS) COLORS = COLORS.concat([{ n: 'Christmas red', c: '#c62f3b', x: 1 }, { n: 'Holly green', c: '#2e7d4f', x: 1 }, { n: 'Snow white', c: '#eef1f4', x: 1 }, { n: 'Gingerbread', c: '#a0623a', x: 1 }]);
-  var FIN_NAMES = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights' };
+  var FIN_NAMES = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights', flag: 'Flag' };
   var CORAL = '#ff9a62';
   var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   var COLS = 13, BW = 80, BH = 40, ROWS = 16, SHOW = COLS * ROWS;
@@ -670,6 +688,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   var user = null, profile = null, bricks = [], wallTotal = 0, busy = false;
   var sel = { c: COLORS[5].c, f: 'plain', photo: null, blob: null };
   var FINISHES = [{ id: 'plain', n: 'Plain', p: 0 }, { id: 'gold', n: 'Gold leaf', p: 19 }, { id: 'glaze', n: 'Glazed', p: 19 }, { id: 'carved', n: 'Carved pattern', p: 19 }];
+  FINISHES = FINISHES.concat([{ id: 'flag', n: 'Your country\u2019s flag', p: 19 }]);
   if (XMAS) FINISHES = FINISHES.concat([{ id: 'snow', n: 'Snow-capped \u2744', p: 19 }, { id: 'candy', n: 'Candy cane \ud83c\udf6c', p: 19 }, { id: 'lights', n: 'Fairy lights \u2728', p: 19 }]);
   var PRICE_INS = 0, PRICE_PHOTO = 19;
 
@@ -721,7 +740,8 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   /* ---- data ---- */
   async function loadWall() {
     var cols = 'id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles!user_id(display_name,business_name,logo_url,logo_status,longest_streak,supporter_until';
-    var r = await sb.from('bricks').select(cols + ',website,website_status,instagram,tiktok,facebook)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select(cols.replace('biz,profiles', 'biz,country,profiles') + ',website,website_status,instagram,tiktok,facebook,country)').order('id', { ascending: false }).limit(SHOW);
+    if (r.error) r = await sb.from('bricks').select(cols + ',website,website_status,instagram,tiktok,facebook)').order('id', { ascending: false }).limit(SHOW);
     if (r.error) r = await sb.from('bricks').select(cols + ',website,website_status)').order('id', { ascending: false }).limit(SHOW);
     if (r.error) r = await sb.from('bricks').select(cols + ')').order('id', { ascending: false }).limit(SHOW);
     if (!r.error) bricks = (r.data || []).reverse();
@@ -800,7 +820,40 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     ctx.restore();
   }
   window.__dbPaintFestive = paintFestive;
-  function drawBrick(ctx, x, y, w, h, color, mine, finish, ins, photo) {
+
+  /* ---- country flags (free flag pictures from the open-source flag-icons set, MIT licence) ---- */
+  var ISO = 'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS XK YE YT ZA ZM ZW'.split(' ');
+  var regionNames = null; try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (e) {}
+  function countryName(cc) { try { return (regionNames && regionNames.of(cc)) || cc; } catch (e) { return cc; } }
+  function flagUrl(cc) { return 'https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.2.3/flags/4x3/' + String(cc).toLowerCase() + '.svg'; }
+  function validCC(cc) { return typeof cc === 'string' && /^[A-Z]{2}$/.test(cc); }
+  function flagTag(cc) { return validCC(cc) ? '<img class="flag" src="' + flagUrl(cc) + '" alt="' + countryName(cc).replace(/"/g, '') + '" width="20" height="15" loading="lazy">' : ''; }
+  var flagImgs = {};
+  function flagImg(cc, onload) {
+    if (!validCC(cc)) return null;
+    var f = flagImgs[cc];
+    if (!f) {
+      f = flagImgs[cc] = { img: new Image(), ok: false, waiting: [] };
+      f.img.crossOrigin = 'anonymous';
+      f.img.onload = function () { f.ok = true; f.waiting.splice(0).forEach(function (cb) { try { cb(); } catch (e) {} }); };
+      f.img.src = flagUrl(cc);
+    }
+    if (!f.ok && onload) f.waiting.push(onload);
+    return f.ok ? f.img : null;
+  }
+  window.__dbFlagUrl = flagUrl;
+  function flagRedraw() { clearTimeout(flagRedraw.t); flagRedraw.t = setTimeout(function () { try { drawWall(); drawPreview(); } catch (e) {} }, 60); }
+  // paint a flag over a brick (cropped to fill it)
+  function paintFlag(ctx, x, y, w, h, cc, redraw) {
+    var im = flagImg(cc, redraw); if (!im) return false;
+    var iw = 640, ih = 480, k = Math.max(w / iw, h / ih);
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.drawImage(im, x + (w - iw * k) / 2, y + (h - ih * k) / 2, iw * k, ih * k);
+    var g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, 'rgba(255,255,255,.18)'); g.addColorStop(.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,.18)');
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, h); ctx.restore();
+    return true;
+  }
+  function drawBrick(ctx, x, y, w, h, color, mine, finish, ins, photo, cc) {
     ctx.fillStyle = finish === 'gold' ? '#d9a93b' : color; ctx.fillRect(x, y, w, h);
     if (photo) {
       var im = imgFor(photo);
@@ -812,6 +865,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     if (finish === 'gold') { var g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, 'rgba(255,245,200,.55)'); g.addColorStop(.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,240,180,.35)'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); }
     if (finish === 'glaze') { ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(x + 3, y + 3, w - 6, h * .3); }
     paintFestive(ctx, x, y, w, h, finish, color);
+    if (finish === 'flag') paintFlag(ctx, x, y, w, h, cc, flagRedraw);
     if (finish === 'carved') { ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; for (var k = 8; k < w + 6; k += 12) { ctx.beginPath(); ctx.moveTo(x + k, y + 4); ctx.lineTo(x + k - 6, y + h - 4); ctx.stroke(); } ctx.restore(); }
     ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x, y + h - 5, w, 5);
     ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(x, y, w, 2);
@@ -868,7 +922,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     function pos(i) { var row = Math.floor(i / COLS), col = i % COLS, off = row % 2 ? 0 : BW / 2; return { x: col * BW + off - BW / 2 + 4, y: H - (row + 1) * BH }; }
     bricks.forEach(function (b, i) {
       var p = pos(i), mine = user && b.user_id === user.id;
-      drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine, b.finish, b.message, photoSrc(b, mine));
+      drawBrick(ctx, p.x + 2, p.y + 2, BW - 4, BH - 4, b.color, mine, b.finish, b.message, photoSrc(b, mine), b.country || (b.profiles && b.profiles.country));
       if ((b.profiles || {}).longest_streak >= 365) { ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 3; ctx.strokeRect(p.x + 3.5, p.y + 3.5, BW - 7, BH - 7); }
       hit.push({ x: p.x + 2, y: p.y + 2, w: BW - 4, h: BH - 4, b: b, mine: mine });
     });
@@ -888,6 +942,8 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var bdg = badgeFor(pr.longest_streak || 0);
     if (pr.supporter_until && new Date(pr.supporter_until) > new Date()) s.textContent += ' \u00b7 Supporter';
     if (bdg) s.textContent += ' \u00b7 ' + bdg;
+    var tcc = h.b.country || pr.country;
+    if (validCC(tcc)) { s.insertAdjacentHTML('afterbegin', flagTag(tcc)); s.title = countryName(tcc); }
     tip.appendChild(s);
     var fn = FIN_NAMES[h.b.finish];
     var ph = h.b.photo_status === 'approved' ? ' · Photo' : (h.mine && h.b.photo_status === 'pending') ? ' · Photo waiting for approval' : (h.mine && h.b.photo_status === 'rejected') ? ' · Photo not approved' : '';
@@ -914,7 +970,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   });
   function drawPreview() {
     var cv = $('prev'), ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
-    drawBrick(ctx, 8, 12, 224, 88, sel.c, false, sel.f, $('inscr').value.trim(), sel.photo);
+    drawBrick(ctx, 8, 12, 224, 88, sel.c, false, sel.f, $('inscr').value.trim(), sel.photo, profile && profile.country);
   }
 
   /* ---- stats and milestones ---- */
@@ -999,6 +1055,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var bd = [supporterActive() ? 'Supporter' : '', badgeFor(profile.longest_streak || 0)].filter(Boolean).join(' \u00b7 ');
     $('badgeText').hidden = !bd; $('badgeText').textContent = bd;
     $('inviteLink').textContent = inviteLink();
+    renderCountry();
     [['soIg', 'instagram'], ['soTt', 'tiktok'], ['soFb', 'facebook']].forEach(function (f) { if (document.activeElement !== $(f[0])) $(f[0]).value = profile[f[1]] ? (f[1] === 'facebook' ? '' : '@') + profile[f[1]] : ''; });
     $('inviteCount').textContent = (profile.referrals_joined || 0) + ' joined';
     var sa = supporterActive();
@@ -1038,7 +1095,10 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
     b.innerHTML = '<span></span><span class="price"></span>'; b.children[0].textContent = f.n; b.children[1].textContent = f.p ? '+R' + f.p : 'Free'; b.setAttribute('data-fid', f.id);
     b.setAttribute('aria-pressed', String(f.id === sel.f));
-    b.addEventListener('click', function () { sel.f = f.id; fiBox.querySelectorAll('.opt').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); drawPreview(); render(); });
+    b.addEventListener('click', function () {
+      if (f.id === 'flag' && !(profile && validCC(profile.country))) { toast(user ? 'Choose your country on the Me tab first, then pick the flag brick.' : 'Sign up and choose your country to get a flag brick.'); return; }
+      sel.f = f.id; fiBox.querySelectorAll('.opt').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); drawPreview(); render();
+    });
     fiBox.appendChild(b);
   });
   $('inscr').addEventListener('input', function () { drawPreview(); render(); });
@@ -1074,7 +1134,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   function show(tab) {
     VIEWS.forEach(function (k) { $('tab-' + k).hidden = k !== tab; });
     document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab)); });
-    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); loadOwner(); } if (tab === 'goals') loadLeaders(); if (tab !== 'wall') $('shareCard').hidden = true;
+    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); loadOwner(); } if (tab === 'goals') { loadLeaders(); loadCountries(); } if (tab !== 'wall') $('shareCard').hidden = true;
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
@@ -1593,12 +1653,95 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
       var li = document.createElement('li'); if (x.me) li.className = 'me';
       li.innerHTML = '<span class="pos"></span><span class="nm"></span><span class="st"></span>';
       li.children[0].textContent = x.pos; li.children[1].textContent = x.name + (x.me ? ' (you)' : ''); li.children[2].textContent = x.streak + (x.streak === 1 ? ' day' : ' days');
+      if (validCC(x.country)) li.children[1].insertAdjacentHTML('afterbegin', flagTag(x.country));
       list.appendChild(li);
     });
     $('lbCount').textContent = fmt(r.data.builders) + ' active streaks';
     var me = r.data.me;
     $('lbMe').textContent = !user ? 'Sign up to get on the board.' : me ? (me.pos <= 10 ? 'You\'re in the top 10. Keep it going!' : 'You\'re number ' + me.pos + ' with ' + me.streak + ' days. Keep building to climb.') : 'Place today\'s brick to start a streak and join the board.';
   }
+
+  async function loadCountries() {
+    var r = await sb.rpc('country_board'), list = $('ctyList'); list.innerHTML = '';
+    if (r.error || !r.data) { $('ctyMe').textContent = 'The countries board could not load. Try again later.'; return; }
+    var top = r.data.top || [];
+    $('ctyCount').textContent = r.data.countries ? fmt(r.data.countries) + (r.data.countries === 1 ? ' country' : ' countries') : '';
+    top.forEach(function (x) {
+      var li = document.createElement('li'); if (x.me) li.className = 'me';
+      li.innerHTML = '<span class="pos"></span><span class="nm"></span><span class="st"></span>';
+      li.children[0].textContent = x.pos;
+      li.children[1].textContent = countryName(x.country) + (x.me ? ' (yours)' : ''); li.children[1].insertAdjacentHTML('afterbegin', flagTag(x.country));
+      li.children[2].textContent = fmt(x.bricks) + (x.bricks === 1 ? ' brick' : ' bricks');
+      li.title = fmt(x.builders) + (x.builders === 1 ? ' builder' : ' builders');
+      list.appendChild(li);
+    });
+    var me = r.data.me;
+    $('ctyMe').textContent = !top.length ? 'No countries yet. Choose your country on the Me tab and be the first.'
+      : !(profile && profile.country) ? 'Choose your country on the Me tab so your bricks count for it.'
+      : me ? countryName(me.country) + ' is number ' + me.pos + ' with ' + fmt(me.bricks) + ' bricks. Invite friends to push it up!' : '';
+  }
+
+  /* ---- your country ---- */
+  (function () {
+    var sel = $('countrySel'), list = ISO.map(function (cc) { return [cc, countryName(cc)]; }).filter(function (c) { return c[1] !== c[0]; });
+    list.sort(function (a, b) { return a[1].localeCompare(b[1]); });
+    list.forEach(function (c) { var o = document.createElement('option'); o.value = c[0]; o.textContent = c[1]; sel.appendChild(o); });
+    sel.addEventListener('change', function () { $('countryFlag').innerHTML = flagTag(sel.value); });
+  })();
+  function guessCountry() {
+    var langs = (navigator.languages || [navigator.language || '']);
+    for (var i = 0; i < langs.length; i++) { var m = String(langs[i]).match(/-([A-Z]{2})$/i); if (m) return m[1].toUpperCase(); }
+    return '';
+  }
+  function renderCountry() {
+    if (!profile) return;
+    var cc = validCC(profile.country) ? profile.country : '';
+    if (document.activeElement !== $('countrySel')) $('countrySel').value = cc || guessCountry();
+    $('countryFlag').innerHTML = flagTag($('countrySel').value);
+    $('countrySave').textContent = cc ? 'Change my country' : 'Save my country';
+    $('countryNote').textContent = cc ? 'Your bricks count for ' + countryName(cc) + '. Your flag shows on your bricks and on the boards.'
+      : 'Your flag shows on your bricks and on the boards, and your bricks count for your country.';
+    addFlagColours();
+  }
+  $('countrySave').addEventListener('click', async function () {
+    if (!user) return;
+    var cc = $('countrySel').value; if (!cc) { toast('Choose your country from the list first.'); return; }
+    var btn = $('countrySave'); btn.disabled = true;
+    var r = await sb.rpc('set_country', { p_code: cc });
+    btn.disabled = false;
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    if (r.data) profile = r.data;
+    renderCountry(); loadWall(); toast('Saved! Your bricks now count for ' + countryName(cc) + '.');
+  });
+  // free flag colours: the main colours of your flag, added to the colour picker
+  var flagColoursFor = '';
+  function addFlagColours() {
+    var cc = profile && validCC(profile.country) ? profile.country : '';
+    if (cc === flagColoursFor) return;
+    var box = $('swatches'); box.querySelectorAll('.swatch.flagc').forEach(function (b) { b.remove(); });
+    flagColoursFor = cc; if (!cc) return;
+    var im = flagImg(cc, addFlagColoursSoon); if (!im) { flagColoursFor = ''; return; }
+    var cols = [];
+    try {
+      var c = document.createElement('canvas'); c.width = 64; c.height = 48; var g = c.getContext('2d'); g.drawImage(im, 0, 0, 64, 48);
+      var d = g.getImageData(0, 0, 64, 48).data, counts = {};
+      for (var i = 0; i < d.length; i += 4) { var key = [d[i] >> 4, d[i + 1] >> 4, d[i + 2] >> 4].join(','); counts[key] = (counts[key] || 0) + 1; }
+      Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).forEach(function (k) {
+        if (cols.length >= 3 || counts[k] < 64 * 48 * 0.05) return;
+        var v = k.split(',').map(function (n) { return Math.min(255, n * 16 + 8); });
+        if (cols.some(function (o) { return Math.abs(o[0] - v[0]) + Math.abs(o[1] - v[1]) + Math.abs(o[2] - v[2]) < 90; })) return;
+        cols.push(v);
+      });
+    } catch (e) { cols = []; }
+    cols.forEach(function (v, n) {
+      var hex = '#' + v.map(function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'swatch flagc'; b.style.background = hex;
+      b.title = countryName(cc) + ' flag colour ' + (n + 1); b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(sel.c === hex));
+      b.addEventListener('click', function () { sel.c = hex; box.querySelectorAll('.swatch').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); drawPreview(); });
+      box.appendChild(b);
+    });
+  }
+  function addFlagColoursSoon() { flagColoursFor = ''; setTimeout(addFlagColours, 0); }
 
   /* ---- invites ---- */
   function refCode() {
@@ -1647,7 +1790,11 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
     x.fillText(st > 1 ? st + ' days' : 'I built today', W / 2, (st > 1 ? 410 : 400) + oy);
     // the brick
     var bw = 620, bh = 290, bx = (W - bw) / 2, by = 520 + oy;
-    drawBrick(x, bx, by, bw, bh, mine ? mine.color : sel.c, false, mine ? mine.finish : 'plain', mine ? mine.message : '', null);
+    drawBrick(x, bx, by, bw, bh, mine ? mine.color : sel.c, false, mine ? mine.finish : 'plain', mine ? mine.message : '', null, (mine && mine.country) || (profile && profile.country));
+    if (profile && validCC(profile.country)) {
+      var fimg = flagImg(profile.country) || await new Promise(function (res) { var tmo = setTimeout(function () { res(null); }, 3000); flagImg(profile.country, function () { clearTimeout(tmo); res(flagImg(profile.country)); }); });
+      if (fimg) { try { x.save(); x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 10; x.drawImage(fimg, W - 80 - 96, 80 + (story ? 170 : 0), 96, 72); x.restore(); } catch (e) {} }
+    }
     x.strokeStyle = '#f1f7f4'; x.lineWidth = 8; x.strokeRect(bx + 4, by + 4, bw - 8, bh - 8);
     // a strip of wall underneath
     var cols = ['#d9714e', '#d4a76a', '#5fa3b0', '#4f6e7c', '#6a8f5a', '#d9973a', '#cf8585', '#5b6e7a'];
@@ -1885,7 +2032,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   /* ---- today's reel (owner) ---- */
   var reelScript = null;
   $('makeReel').addEventListener('click', function () {
-    if (!reelScript) reelScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/reel.js?v=1'; s.onload = res; s.onerror = function () { reelScript = null; rej(); }; document.head.appendChild(s); });
+    if (!reelScript) reelScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/reel.js?v=2'; s.onload = res; s.onerror = function () { reelScript = null; rej(); }; document.head.appendChild(s); });
     reelScript.then(function () { window.DailyBrickReel.open({ sb: sb }); }, function () { toast('The reel maker could not load. Check your connection.'); });
   });
 
@@ -1893,7 +2040,7 @@ a.opt .price { overflow-wrap: anywhere; text-align: right; }
   var w3dScript = null;
   function load3d() {
     if (window.DailyBrick3D) return Promise.resolve();
-    if (!w3dScript) w3dScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/wall3d.js?v=3'; s.onload = res; s.onerror = function () { w3dScript = null; rej(new Error('load')); }; document.head.appendChild(s); });
+    if (!w3dScript) w3dScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/wall3d.js?v=4'; s.onload = res; s.onerror = function () { w3dScript = null; rej(new Error('load')); }; document.head.appendChild(s); });
     return w3dScript;
   }
   function open3d() {
