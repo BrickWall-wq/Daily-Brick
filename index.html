@@ -292,6 +292,19 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 #countrySel { width: 100%; min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--night); color: var(--ink); font: inherit; }
 .lb .nm img.flag { margin-right: 8px; }
 .swatch.flagc { position: relative; } .swatch.flagc::after { content: '\2691'; position: absolute; right: 3px; top: 1px; font-size: 11px; color: #fff; text-shadow: 0 0 2px #0b2230, 0 0 2px #0b2230; }
+.race .racebar { height: 12px; border-radius: 6px; background: var(--night); overflow: hidden; border: 1px solid var(--line); margin: 6px 0; }
+.race .racebar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--mint), var(--coral)); transition: width .8s; }
+#giftTo, #giftNote, #giftLink, #annTitle, #annBody, #annBtn, #annLink, #annAction { width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--night); color: var(--ink); font: inherit; }
+#annBody { min-height: 80px; resize: vertical; }
+.check { display: flex; gap: 10px; align-items: center; font-size: 15px; } .check input { width: 22px; height: 22px; }
+.pop { position: fixed; inset: 0; z-index: 78; background: rgba(5, 14, 20, .78); display: grid; place-items: center; padding: 20px 16px; }
+.pop-card { width: min(420px, 100%); background: var(--night2); border: 1px solid var(--line); border-radius: 20px; padding: 18px; display: grid; gap: 10px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.5); animation: popin .35s ease-out; }
+.pop-card canvas { width: 100%; height: auto; border-radius: 14px; background: var(--night); }
+.pop-card h2 { margin: 4px 0 0; font: 800 24px/1.2 Cinzel, Georgia, serif; }
+.pop-card p { margin: 0; color: var(--muted); }
+.linkbtn { background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; padding: 6px; }
+@keyframes popin { from { transform: translateY(16px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pop-card { animation: none; } }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
 .mod a { color: var(--mint); word-break: break-all; }
 .mod img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; background: var(--mortar); }
@@ -340,6 +353,13 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
         <h1>One brick a day. <span>A wall built by the world.</span></h1>
         <p>Place your free daily brick and write your name on it. Watch the wall grow past the Great Wall of China.</p>
       </div>
+    </div>
+
+    <div class="card race" id="raceCard" hidden>
+      <div class="row"><h3 id="raceTitle">Race to brick #1,000</h3><span class="tag" id="raceLeft"></span></div>
+      <div class="racebar"><i id="raceFill"></i></div>
+      <p class="note" id="raceText">Whoever places brick #1,000 wins a free Gold brick and a month of Supporter.</p>
+      <p class="note" id="raceWinner" hidden></p>
     </div>
 
     <div class="card" aria-label="Wall progress">
@@ -405,6 +425,11 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
       <button class="btn" id="placeBtn" type="button">Place today's brick</button>
       <button class="btn ghost" id="placeAll" type="button" hidden>Place all remaining bricks</button>
       <p class="note" id="resetNote" style="text-align:center"></p>
+    </div>
+    <div class="card" id="giftCard">
+      <div class="row"><h3>&#127873; Gift a brick</h3><span class="tag">R19</span></div>
+      <p class="note">Place a brick for someone special, with their name on it, and send them the link. Birthdays, thank-yous, in memory of someone. It doesn't use up your own brick.</p>
+      <button class="btn ghost" type="button" id="giftOpen">Gift a brick</button>
     </div>
   </section>
 
@@ -585,6 +610,18 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
         <p class="note" id="oTest"></p>
       </div>
       <button class="btn" type="button" id="makeReel">&#127916; Make today's reel</button>
+      <div class="rewards" id="annBox">
+        <div class="row"><h3>Pop-up announcement</h3><span class="tag" id="annState">Off</span></div>
+        <p class="note">Shown to everyone once when they open the app. When it's off, the app shows its own pop-ups (Christmas, the brick race, gifts).</p>
+        <label class="label" for="annTitle">Title</label><input type="text" id="annTitle" maxlength="80" placeholder="e.g. Brick #1,000 is close!">
+        <label class="label" for="annBody">Text</label><textarea id="annBody" maxlength="300" rows="3" placeholder="e.g. Only 50 bricks to go. Will you be the one?"></textarea>
+        <label class="label" for="annBtn">Button text</label><input type="text" id="annBtn" maxlength="30" placeholder="e.g. Place my brick">
+        <label class="label" for="annAction">Button goes to</label>
+        <select id="annAction"><option value="place">Place a brick</option><option value="wall">The wall</option><option value="goals">Goals (boards)</option><option value="plans">Plans</option><option value="gift">Gift a brick</option><option value="me">Me</option><option value="link">A web link</option></select>
+        <input type="text" id="annLink" maxlength="200" placeholder="https://..." hidden>
+        <label class="check"><input type="checkbox" id="annOn"> Show this pop-up now</label>
+        <button class="btn ghost" type="button" id="annSave">Save announcement</button>
+      </div>
       <div class="tiles" id="oTiles"></div>
       <div class="chartbox">
         <div class="row"><h3>Builders per day</h3><span class="note">Last 14 days</span></div>
@@ -625,6 +662,43 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   </div>
 </nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="sharesheet" id="giftSheet" role="dialog" aria-modal="true" aria-labelledby="giftTitle" hidden>
+  <div class="ss-panel">
+    <div class="row"><h3 id="giftTitle">&#127873; Gift a brick</h3><button class="btn ghost" type="button" id="giftClose" style="width:auto;min-height:0">Close</button></div>
+    <div id="giftForm" style="display:grid;gap:10px">
+      <canvas id="giftPrev" width="480" height="224" style="width:240px;height:112px;justify-self:center"></canvas>
+      <label class="label" for="giftTo">Their name (on the brick)</label>
+      <input type="text" id="giftTo" maxlength="12" placeholder="e.g. THANDI" autocomplete="off">
+      <label class="label" for="giftNote">Your message to them (optional)</label>
+      <input type="text" id="giftNote" maxlength="100" placeholder="e.g. Happy birthday! Love, Carel" autocomplete="off">
+      <p class="note">Uses the colour and finish you picked on the Place screen. You'll get a link to send them.</p>
+      <button class="btn" type="button" id="giftPay">Pay R19 and place it</button>
+    </div>
+    <div id="giftDone" hidden style="display:grid;gap:10px">
+      <p class="ok" id="giftDoneText"></p>
+      <input type="text" id="giftLink" readonly>
+      <div class="ss-grid">
+        <button type="button" id="giftWa"><b>WhatsApp</b><span>Send them the link</span></button>
+        <button type="button" id="giftShare"><b>Share</b><span>Any other app</span></button>
+        <button type="button" id="giftCopy"><b>Copy link</b><span>Paste it anywhere</span></button>
+        <button type="button" id="giftAgain"><b>Gift another</b><span>For someone else</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pop" id="pop" role="dialog" aria-modal="true" aria-labelledby="popTitle" hidden>
+  <div class="pop-card">
+    <canvas id="popArt" width="640" height="300"></canvas>
+    <h2 id="popTitle"></h2>
+    <p id="popBody"></p>
+    <p class="note" id="popFrom" hidden></p>
+    <button class="btn" type="button" id="popGo"></button>
+    <button class="btn ghost" type="button" id="popLater">Later</button>
+    <button class="linkbtn" type="button" id="popNever">Don't show this again</button>
+  </div>
+</div>
 
     <div class="sharesheet" id="shareSheet" role="dialog" aria-modal="true" aria-labelledby="ssTitle" hidden>
   <div class="ss-panel">
@@ -740,7 +814,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   /* ---- data ---- */
   async function loadWall() {
     var cols = 'id,color,finish,message,is_premium,photo_url,photo_status,user_id,placed_on,biz,profiles!user_id(display_name,business_name,logo_url,logo_status,longest_streak,supporter_until';
-    var r = await sb.from('bricks').select(cols.replace('biz,profiles', 'biz,country,profiles') + ',website,website_status,instagram,tiktok,facebook,country)').order('id', { ascending: false }).limit(SHOW);
+    var r = await sb.from('bricks').select(cols.replace('biz,profiles', 'biz,country,gift,profiles') + ',website,website_status,instagram,tiktok,facebook,country)').order('id', { ascending: false }).limit(SHOW);
     if (r.error) r = await sb.from('bricks').select(cols + ',website,website_status,instagram,tiktok,facebook)').order('id', { ascending: false }).limit(SHOW);
     if (r.error) r = await sb.from('bricks').select(cols + ',website,website_status)').order('id', { ascending: false }).limit(SHOW);
     if (r.error) r = await sb.from('bricks').select(cols + ')').order('id', { ascending: false }).limit(SHOW);
@@ -753,7 +827,8 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     if (!user) { profile = null; $('adminPanel').hidden = true; $('ownerPanel').hidden = true; render(); return; }
     var r = await sb.from('profiles').select('*').eq('id', user.id).single();
     profile = r.error ? null : r.data;
-    var c = await sb.from('bricks').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('placed_on', todayUTC());
+    var c = await sb.from('bricks').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('placed_on', todayUTC()).eq('gift', false);
+    if (c.error) c = await sb.from('bricks').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('placed_on', todayUTC());
     todayCount = c.error ? (profile && profile.last_brick_date === todayUTC() ? 1 : 0) : (c.count || 0);
     await loadSubs();
     render(); renderBiz();
@@ -942,6 +1017,8 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     var bdg = badgeFor(pr.longest_streak || 0);
     if (pr.supporter_until && new Date(pr.supporter_until) > new Date()) s.textContent += ' \u00b7 Supporter';
     if (bdg) s.textContent += ' \u00b7 ' + bdg;
+    if (h.b.gift) s.textContent += ' · 🎁 gift brick';
+    var msb = milestoneOf(h.b.id); if (msb) s.textContent += ' · 🏆 Brick #' + fmt(msb.n);
     var tcc = h.b.country || pr.country;
     if (validCC(tcc)) { s.insertAdjacentHTML('afterbegin', flagTag(tcc)); s.title = countryName(tcc); }
     tip.appendChild(s);
@@ -1134,7 +1211,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   function show(tab) {
     VIEWS.forEach(function (k) { $('tab-' + k).hidden = k !== tab; });
     document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === tab)); });
-    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); loadOwner(); } if (tab === 'goals') { loadLeaders(); loadCountries(); } if (tab !== 'wall') $('shareCard').hidden = true;
+    if (tab === 'wall') drawWall(); if (tab === 'place') drawPreview(); if (tab === 'me') { loadPending(); loadRemind(); loadOwner(); if (profile && profile.is_admin) loadAnn(); } if (tab === 'goals') { loadLeaders(); loadCountries(); } if (tab !== 'wall') $('shareCard').hidden = true;
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
@@ -1153,7 +1230,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   function thud() { var w = $('wallwrap'); w.classList.remove('thud'); void w.offsetWidth; w.classList.add('thud'); }
 
   async function celebrate(msg) {
-    await loadProfile(); await loadWall();
+    await loadProfile(); await loadWall(); loadRace();
     show('wall'); thud(); confetti();
     var st = liveStreak(), m = STREAKS.filter(function (x) { return x[0] === st; })[0];
     toast(m && !msg ? st + '-day streak! You earned ' + m[2] + '.' : (msg || 'Brick placed. See you tomorrow!'));
@@ -1782,7 +1859,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     [[2, 4, '#ff9a62'], [16, 4, '#e0713a'], [9, 13, '#ff9a62'], [2, 22, '#e0713a'], [16, 22, '#ff9a62']].forEach(function (b) { x.fillStyle = b[2]; x.fillRect(lx + b[0] * s, ly + b[1] * s, 12 * s, 7 * s); });
     x.fillStyle = '#f1f7f4'; x.font = '800 54px Cinzel, Georgia, serif'; x.textBaseline = 'middle'; x.textAlign = 'left';
     x.fillText('Daily Brick', lx + 120, ly + 48);
-    var st = liveStreak(), mine = bricks.filter(function (b) { return user && b.user_id === user.id; }).pop();
+    var st = liveStreak(), mine = bricks.filter(function (b) { return user && b.user_id === user.id && !b.gift; }).pop();
     x.textAlign = 'center';
     x.fillStyle = '#ffd7b0'; x.font = '600 30px "IBM Plex Mono", monospace';
     x.fillText(st > 1 ? 'MY STREAK' : 'MY BRICK IS ON THE WALL', W / 2, 300 + oy);
@@ -2089,6 +2166,183 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   if (isIOS) showInstall(true);
   if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
 
+
+  /* ---- race to the next milestone brick (#1,000, #5,000, ...) ---- */
+  var raceData = null;
+  function prevMilestone(next) { var list = [0, 1000, 5000, 10000, 25000, 50000]; var p = 0; list.forEach(function (m) { if (m < next) p = m; }); if (next > 100000) p = next - 100000; return p; }
+  function milestoneOf(id) { return raceData && (raceData.winners || []).filter(function (w) { return w.brick_id === id; })[0]; }
+  async function loadRace() {
+    var r = await sb.rpc('milestone_board'); if (r.error || !r.data) return;
+    raceData = r.data; renderRace(); checkMilestoneWin();
+  }
+  function renderRace() {
+    var d = raceData; if (!d) return;
+    var w = (d.winners || [])[0];
+    $('raceCard').hidden = !d.next && !w;
+    if (d.next) {
+      var left = Math.max(0, d.next - d.total), prev = prevMilestone(d.next);
+      $('raceTitle').textContent = 'Race to brick #' + fmt(d.next);
+      $('raceLeft').textContent = fmt(left) + ' to go';
+      $('raceFill').style.width = Math.max(2, Math.min(100, (d.total - prev) / (d.next - prev) * 100)) + '%';
+      $('raceText').textContent = 'Whoever places brick #' + fmt(d.next) + ' wins a free Gold brick and a month of Supporter.';
+    }
+    $('raceWinner').hidden = !w;
+    if (w) { $('raceWinner').textContent = '🏆 Brick #' + fmt(w.n) + ' was placed by ' + w.name + '.'; if (validCC(w.country)) $('raceWinner').insertAdjacentHTML('beforeend', ' ' + flagTag(w.country)); }
+  }
+  function checkMilestoneWin() {
+    if (!user || !raceData) return;
+    (raceData.winners || []).forEach(function (w) {
+      var mine = bricks.some(function (b) { return b.id === w.brick_id && b.user_id === user.id; });
+      if (mine && lsGet('db_ms_' + w.n) !== '1') { lsSet('db_ms_' + w.n, '1'); confetti(); toast('You placed brick #' + fmt(w.n) + '! You win a free Gold brick and a month of Supporter. 🎉'); }
+    });
+  }
+
+  /* ---- gift a brick ---- */
+  function drawGiftPreview() {
+    var c = $('giftPrev'), g = c.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, 240, 112);
+    drawBrick(g, 8, 12, 224, 88, sel.c, false, sel.f, ($('giftTo').value.trim() || 'THEIR NAME'), null, profile && profile.country);
+  }
+  function openGift() {
+    if (!user) { show('me'); toast('Create an account or log in first, then you can gift a brick.'); return; }
+    $('giftForm').hidden = false; $('giftDone').hidden = true; $('giftSheet').hidden = false; drawGiftPreview();
+    setTimeout(function () { try { $('giftTo').focus(); } catch (e) {} }, 100);
+  }
+  function closeGift() { $('giftSheet').hidden = true; }
+  $('giftOpen').addEventListener('click', openGift);
+  $('giftClose').addEventListener('click', closeGift);
+  $('giftSheet').addEventListener('click', function (e) { if (e.target === $('giftSheet')) closeGift(); });
+  $('giftTo').addEventListener('input', drawGiftPreview);
+  $('giftAgain').addEventListener('click', function () { $('giftTo').value = ''; $('giftNote').value = ''; openGift(); });
+  var giftUrl = '', giftName = '';
+  function giftMessage() { return 'I placed a brick for you on Daily Brick 🧱🎁 See it here: ' + giftUrl; }
+  $('giftWa').addEventListener('click', function () { window.open('https://wa.me/?text=' + encodeURIComponent(giftMessage()), '_blank', 'noopener,noreferrer'); });
+  $('giftShare').addEventListener('click', async function () { if (navigator.share) { try { await navigator.share({ text: giftMessage() }); } catch (e) {} } else copyText(giftUrl); });
+  $('giftCopy').addEventListener('click', function () { copyText(giftUrl); });
+  $('giftPay').addEventListener('click', async function () {
+    var to = $('giftTo').value.trim(), note = $('giftNote').value.trim();
+    if (!to) { toast('Write the name of the person the brick is for.'); return; }
+    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
+    var btn = $('giftPay'); btn.disabled = true;
+    var r = await sb.functions.invoke('smooth-action', { body: { action: 'gift', to_name: to, note: note, color: sel.c, finish: sel.f } });
+    btn.disabled = false;
+    if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
+    var ref = r.data.reference;
+    new PaystackPop().resumeTransaction(r.data.access_code, {
+      onSuccess: async function () {
+        var code = null;
+        for (var i = 0; i < 4 && !code; i++) {
+          var v = await sb.functions.invoke('smooth-action', { body: { action: 'verify', reference: ref } });
+          if (!v.error && v.data && v.data.ok) code = v.data.gift_code || 'done';
+          else await new Promise(function (res) { setTimeout(res, 2000); });
+        }
+        loadWall(); loadRace();
+        if (!code) { toast('Payment received. Your gift brick will show up in a minute or two.'); return; }
+        giftName = to; giftUrl = location.origin + '/?gift=' + (code === 'done' ? '' : code);
+        $('giftLink').value = giftUrl; $('giftDoneText').textContent = 'Your brick for ' + to + ' is on the wall! Send them the link:';
+        $('giftForm').hidden = true; $('giftDone').hidden = false; confetti();
+      },
+      onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
+      onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
+    });
+  });
+
+  /* ---- pop-ups: a gift someone sent you, your announcement, or the app's own news ---- */
+  var popAct = null, popId = null;
+  function todayKey() { return new Date(Date.now() + 2 * 3600e3).toISOString().slice(0, 10); }
+  function popArt(kind, data) {
+    var c = $('popArt'), g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 640, 300);
+    g.fillStyle = '#0b1d26'; g.fillRect(0, 0, 640, 300);
+    if (kind === 'gift' || kind === 'gifted') {
+      var b = data || {}; drawBrick(g, 120, 70, 400, 170, b.color || '#d9714e', false, b.finish || 'plain', b.to_name || 'FOR YOU', null, b.country);
+      g.fillStyle = '#c62f3b'; g.fillRect(468, 70, 24, 170);
+      g.beginPath(); g.ellipse(456, 66, 30, 16, -0.5, 0, 7); g.ellipse(504, 66, 30, 16, 0.5, 0, 7); g.fill();
+    } else if (kind === 'xmas') {
+      [['snow', '#c62f3b'], ['candy', '#c62f3b'], ['lights', '#2e7d4f']].forEach(function (f, i) { drawBrick(g, 40 + i * 195, 90 + (i % 2) * 30, 170, 80, f[1], false, f[0], '', null); });
+      g.fillStyle = 'rgba(240,246,252,.8)'; for (var k = 0; k < 40; k++) { g.beginPath(); g.arc((k * 97) % 640, (k * 53) % 300, 2 + k % 3, 0, 7); g.fill(); }
+    } else if (kind === 'race') {
+      var d = raceData, left = Math.max(0, d.next - d.total), prev = prevMilestone(d.next);
+      g.fillStyle = '#ff9a62'; g.font = '800 92px Cinzel, Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('#' + fmt(d.next), 320, 110);
+      g.fillStyle = '#16323d'; g.fillRect(80, 190, 480, 30);
+      var gr = g.createLinearGradient(80, 0, 560, 0); gr.addColorStop(0, '#5fd6c4'); gr.addColorStop(1, '#ff9a62');
+      g.fillStyle = gr; g.fillRect(80, 190, Math.max(8, 480 * (d.total - prev) / (d.next - prev)), 30);
+      g.fillStyle = '#8fb3b5'; g.font = '600 26px Figtree, sans-serif'; g.fillText(fmt(left) + ' bricks to go', 320, 255);
+    } else {
+      ['#d9714e', '#5fa3b0', '#d4a76a', '#6a8f5a', '#cf8585', '#4f6e7c'].forEach(function (col, i) { drawBrick(g, 70 + (i % 3) * 170 + (Math.floor(i / 3) ? 85 : 0), 80 + Math.floor(i / 3) * 80, 160, 70, col, false, 'plain', '', null); });
+    }
+  }
+  function showPop(o) {
+    popAct = o.action || null; popId = o.id || null;
+    popArt(o.art, o.artData);
+    $('popTitle').textContent = o.title; $('popBody').textContent = o.body || '';
+    $('popFrom').hidden = !o.from; $('popFrom').textContent = o.from || '';
+    $('popGo').textContent = o.go || 'OK'; $('popLater').textContent = o.later || 'Later';
+    $('popNever').hidden = !o.id; $('pop').hidden = false;
+  }
+  function closePop() { $('pop').hidden = true; }
+  function doAction(a) {
+    if (!a) return;
+    if (a.type === 'gift') { show('place'); openGift(); }
+    else if (a.type === 'link') { if (/^https:\/\//i.test(a.link || '')) window.open(a.link, '_blank', 'noopener,noreferrer'); }
+    else if (a.type === 'place') show(user ? 'place' : 'me');
+    else if (a.type === 'join') { if (a.ref) lsSet('db_ref', a.ref); show(user ? 'place' : 'me'); }
+    else show(a.type);
+  }
+  $('popGo').addEventListener('click', function () { var a = popAct; closePop(); doAction(a); });
+  $('popLater').addEventListener('click', closePop);
+  $('popNever').addEventListener('click', function () { if (popId) lsSet('db_pop_' + popId, '99'); closePop(); });
+  $('pop').addEventListener('click', function (e) { if (e.target === $('pop')) closePop(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('pop').hidden) closePop(); });
+  var giftLinkShown = false;
+  async function showGiftLink() {
+    var m = location.search.match(/[?&]gift=([A-Za-z0-9]{6,12})/); if (!m) return false;
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    var r = await sb.rpc('gift_view', { p_code: m[1] });
+    if (r.error || !r.data) { toast('That gift link didn’t work. Ask the sender for a new one.'); return false; }
+    var d = r.data; giftLinkShown = true;
+    if (d.from_ref && !user) lsSet('db_ref', d.from_ref);
+    showPop({ art: 'gifted', artData: d, title: 'A brick for you, ' + d.to_name + '!',
+      body: d.from_name + ' placed brick #' + fmt(d.brick_no) + ' for you on Daily Brick: a wall the whole world is building, one free brick a day.',
+      from: d.note ? '“' + d.note + '”' : '', go: 'Place your own free brick', later: 'See the wall', action: { type: 'join', ref: d.from_ref } });
+    return true;
+  }
+  function xmasStartDays() { var now = new Date(Date.now() + 2 * 3600e3), y = now.getUTCFullYear(), start = Date.UTC(y, 10, 15); return Math.ceil((start - now.getTime()) / 864e5); }
+  async function startPopups() {
+    if (await showGiftLink()) return;
+    if (lsGet('db_pop_day') === todayKey()) return;
+    var a = await sb.rpc('current_announcement');
+    if (!a.error && a.data && a.data.active && a.data.title && lsGet('db_ann_seen') !== String(a.data.version)) {
+      lsSet('db_ann_seen', String(a.data.version)); lsSet('db_pop_day', todayKey());
+      showPop({ art: 'logo', title: a.data.title, body: a.data.body, go: a.data.button_text || 'OK', action: { type: a.data.button_action, link: a.data.link_url } });
+      return;
+    }
+    if (!raceData) await loadRace();
+    var c = [], soon = xmasStartDays();
+    if (xmasSeason()) c.push({ id: 'xmas-here-' + new Date().getUTCFullYear(), art: 'xmas', title: 'Christmas bricks are here!', body: 'Free Christmas colours for everyone, plus snow-capped, candy cane and fairy-light bricks. Until 6 January.', go: 'Place a Christmas brick', action: { type: 'place' } });
+    else if (soon > 0 && soon <= 10) c.push({ id: 'xmas-soon-' + new Date().getUTCFullYear(), art: 'xmas', title: 'Christmas bricks are coming', body: 'In ' + soon + (soon === 1 ? ' day' : ' days') + ': free festive colours, plus snow-capped, candy cane and fairy-light bricks. Keep your streak going until then!', go: 'Place today’s brick', action: { type: 'place' } });
+    if (raceData && raceData.next) c.push({ id: 'race-' + raceData.next, art: 'race', title: 'Race to brick #' + fmt(raceData.next), body: 'Only ' + fmt(Math.max(0, raceData.next - raceData.total)) + ' bricks to go! Whoever places brick #' + fmt(raceData.next) + ' wins a free Gold brick and a month of Supporter.', go: 'Place my brick', action: { type: 'place' } });
+    c.push({ id: 'gift-launch', art: 'gift', artData: { to_name: 'FOR YOU', color: '#5fa3b0' }, title: 'New: Gift a brick', body: 'Place a brick for someone special with their name on it, and send them the link. Perfect for birthdays and thank-yous. R19.', go: 'Gift a brick', action: { type: 'gift' } });
+    c = c.filter(function (o) { return Number(lsGet('db_pop_' + o.id) || 0) < 3; });
+    if (!c.length) return;
+    c.sort(function (x, y) { return Number(lsGet('db_pop_' + x.id) || 0) - Number(lsGet('db_pop_' + y.id) || 0); });
+    var o = c[0]; lsSet('db_pop_' + o.id, String(Number(lsGet('db_pop_' + o.id) || 0) + 1)); lsSet('db_pop_day', todayKey());
+    showPop(o);
+  }
+
+  /* ---- owner: the pop-up announcement ---- */
+  async function loadAnn() {
+    var r = await sb.rpc('current_announcement'); var a = (r && r.data) || {};
+    $('annTitle').value = a.title || ''; $('annBody').value = a.body || ''; $('annBtn').value = a.button_text || '';
+    $('annAction').value = a.button_action || 'place'; $('annLink').value = a.link_url || ''; $('annOn').checked = !!a.active;
+    $('annLink').hidden = $('annAction').value !== 'link'; $('annState').textContent = a.active ? 'On' : 'Off';
+  }
+  $('annAction').addEventListener('change', function () { $('annLink').hidden = this.value !== 'link'; });
+  $('annSave').addEventListener('click', async function () {
+    var r = await sb.rpc('set_announcement', { p_title: $('annTitle').value, p_body: $('annBody').value, p_button: $('annBtn').value, p_action: $('annAction').value, p_link: $('annLink').value, p_active: $('annOn').checked });
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    $('annState').textContent = $('annOn').checked ? 'On' : 'Off';
+    toast($('annOn').checked ? 'Saved. Everyone sees it once, the next time they open the app.' : 'Saved. The announcement is off.');
+  });
+
   /* ---- start ---- */
   setMode('signup'); drawPreview(); render();
   sb.auth.getSession().then(function (r) {
@@ -2097,9 +2351,10 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     if (location.hash === '#place') { show(user ? 'place' : 'me'); try { history.replaceState(null, '', location.pathname); } catch (e) {} }
   });
   renderRemind(false);
-  loadWall();
+  loadWall().then(loadRace);
+  setTimeout(startPopups, 1500);
   setInterval(resetNote, 1000);
-  setInterval(loadWall, 60000);
+  setInterval(function () { loadWall().then(loadRace); }, 60000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { loadWall(); loadProfile(); } });
 })();
 </script>
