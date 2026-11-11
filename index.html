@@ -2169,7 +2169,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 
   /* ---- race to the next milestone brick (#1,000, #5,000, ...) ---- */
   var raceData = null;
-  function prevMilestone(next) { var list = [0, 1000, 5000, 10000, 25000, 50000]; var p = 0; list.forEach(function (m) { if (m < next) p = m; }); if (next > 100000) p = next - 100000; return p; }
+  function prevMilestone(next) { var list = [0, 100, 250, 500, 1000, 5000, 10000, 25000, 50000]; var p = 0; list.forEach(function (m) { if (m < next) p = m; }); if (next > 100000) p = next - 100000; return p; }
   function milestoneOf(id) { return raceData && (raceData.winners || []).filter(function (w) { return w.brick_id === id; })[0]; }
   async function loadRace() {
     var r = await sb.rpc('milestone_board'); if (r.error || !r.data) return;
