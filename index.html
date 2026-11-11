@@ -438,6 +438,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     <div class="panel">
       <h2>Plans</h2>
       <p class="muted" style="font-size:14px">The daily brick is free forever. Extras stay low-priced so anyone can join.</p>
+        <p class="muted" id="fxNote" data-nolocal hidden style="font-size:13px;margin-top:-4px"></p>
       <div class="plans">
         <div class="plan"><div class="row"><h3>Builder</h3><span class="amt">Free</span></div>
           <ul><li>One brick every day</li><li>8 colours</li><li>Write your initials or a short word on it</li><li>Streaks, rewards and your spot on the wall</li></ul></div>
@@ -600,7 +601,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
         <button class="btn ghost" type="button" id="delCancel">Keep my account</button>
       </div>
     </div>
-    <div class="panel" id="ownerPanel" hidden>
+    <div class="panel" id="ownerPanel" data-nolocal hidden>
       <div class="row"><h2>Owner dashboard</h2><button class="btn ghost" type="button" id="ownerRefresh" style="width:auto;min-height:0">Refresh</button></div>
       <div class="hero-num">
         <span class="label">Income, last 30 days</span>
@@ -1779,6 +1780,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     $('countryNote').textContent = cc ? 'Your bricks count for ' + countryName(cc) + '. Your flag shows on your bricks and on the boards.'
       : 'Your flag shows on your bricks and on the boards, and your bricks count for your country.';
     addFlagColours();
+    localPrices();
   }
   $('countrySave').addEventListener('click', async function () {
     if (!user) return;
@@ -2343,6 +2345,68 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     toast($('annOn').checked ? 'Saved. Everyone sees it once, the next time they open the app.' : 'Saved. The announcement is off.');
   });
 
+  /* ---- prices in the builder's own currency: "R19 (≈ $1.05)". Payment is still in rand. ---- */
+  var CUR = { US: 'USD', GB: 'GBP', AU: 'AUD', NZ: 'NZD', CA: 'CAD', IN: 'INR', NG: 'NGN', KE: 'KES', GH: 'GHS', BW: 'BWP', ZW: 'USD', ZM: 'ZMW',
+    MZ: 'MZN', MW: 'MWK', TZ: 'TZS', UG: 'UGX', RW: 'RWF', ET: 'ETB', EG: 'EGP', MA: 'MAD', AO: 'AOA', MU: 'MUR', CM: 'XAF', SN: 'XOF', CI: 'XOF',
+    AE: 'AED', SA: 'SAR', QA: 'QAR', KW: 'KWD', IL: 'ILS', TR: 'TRY', CH: 'CHF', SE: 'SEK', NO: 'NOK', DK: 'DKK', PL: 'PLN', CZ: 'CZK', HU: 'HUF',
+    RO: 'RON', JP: 'JPY', CN: 'CNY', HK: 'HKD', SG: 'SGD', MY: 'MYR', TH: 'THB', PH: 'PHP', ID: 'IDR', KR: 'KRW', VN: 'VND', PK: 'PKR', BD: 'BDT',
+    LK: 'LKR', BR: 'BRL', MX: 'MXN', AR: 'ARS', CL: 'CLP', CO: 'COP', PE: 'PEN', IS: 'ISK', RS: 'RSD', UA: 'UAH', TW: 'TWD' };
+  'AT BE BG HR CY EE FI FR DE GR IE IT LV LT LU MT NL PT SK SI ES'.split(' ').forEach(function (c) { CUR[c] = 'EUR'; });
+  var fx = null, fxCur = '', fxFmt = null;
+  var PRICE_RE = /(^|[^A-Za-z0-9])R(\d[\d,]*(?:\.\d\d)?)(?![A-Za-z0-9])(?: \(≈ [^)]*\))?/g;
+  function priceText(s) {
+    if (s.indexOf('R') < 0) return s;
+    return s.replace(PRICE_RE, function (all, pre, num) {
+      var out = pre + 'R' + num, v = parseFloat(num.replace(/,/g, ''));
+      if (fxFmt && v > 0) out += ' (≈ ' + fxFmt(v * fx) + ')';
+      return out;
+    });
+  }
+  function localizeNode(root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), n;
+    while ((n = w.nextNode())) {
+      var el = n.parentElement;
+      if (!el || /^(SCRIPT|STYLE|TEXTAREA|OPTION)$/.test(el.tagName) || el.closest('[data-nolocal]')) continue;
+      var s = n.data, ns = priceText(s); if (ns !== s) n.data = ns;
+    }
+  }
+  var fxObs = null;
+  async function localPrices() {
+    var cc = (profile && validCC(profile.country)) ? profile.country : guessCountry();
+    var cur = CUR[cc] || '';
+    if (cur !== fxCur) {
+      fxCur = cur; fx = null; fxFmt = null;
+      if (cur) {
+        var cache = null; try { cache = JSON.parse(lsGet('db_fx') || 'null'); } catch (e) {}
+        if (cache && cache.rates && Date.now() - cache.t < 864e5) fx = cache.rates[cur];
+        else {
+          try {
+            var ctl = new AbortController(); setTimeout(function () { ctl.abort(); }, 6000);
+            var res = await fetch('https://open.er-api.com/v6/latest/ZAR', { signal: ctl.signal });
+            var j = await res.json();
+            if (j && j.result === 'success' && j.rates) { lsSet('db_fx', JSON.stringify({ t: Date.now(), rates: j.rates })); fx = j.rates[cur]; }
+          } catch (e) {}
+        }
+        if (fx > 0 && fxCur === cur) {
+          var nf = new Intl.NumberFormat(navigator.language || 'en', { style: 'currency', currency: cur, maximumFractionDigits: fx * 9 < 1 ? 2 : 0, minimumFractionDigits: fx * 9 < 1 ? 2 : 0 });
+          fxFmt = function (v) { return nf.format(v); };
+        } else fx = null;
+      }
+    }
+    var fn = $('fxNote');
+    if (fn) { fn.hidden = !fxFmt; if (fxFmt) fn.textContent = 'Prices are in South African rand (R). Your bank pays it in ' + fxCur + ' at the day\u2019s rate; the amounts in brackets are estimates.'; }
+    localizeNode(document.body);
+    if (!fxObs && window.MutationObserver) {
+      fxObs = new MutationObserver(function (list) {
+        list.forEach(function (m) {
+          if (m.type === 'characterData') { var el = m.target.parentElement; if (el && !el.closest('[data-nolocal]')) { var ns = priceText(m.target.data); if (ns !== m.target.data) m.target.data = ns; } }
+          else m.addedNodes.forEach(function (nd) { if (nd.nodeType === 3) { var el = nd.parentElement; if (el && !el.closest('[data-nolocal]')) { var ns = priceText(nd.data); if (ns !== nd.data) nd.data = ns; } } else if (nd.nodeType === 1) localizeNode(nd); });
+        });
+      });
+      fxObs.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+  }
+
   /* ---- start ---- */
   setMode('signup'); drawPreview(); render();
   sb.auth.getSession().then(function (r) {
@@ -2353,6 +2417,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   renderRemind(false);
   loadWall().then(loadRace);
   setTimeout(startPopups, 1500);
+  localPrices();
   setInterval(resetNote, 1000);
   setInterval(function () { loadWall().then(loadRace); }, 60000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { loadWall(); loadProfile(); } });
