@@ -311,6 +311,8 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 .mod .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .mod .btn { min-height: 44px; font-size: 14px; }
 .btn.no { background: var(--night3); color: var(--ink); box-shadow: none; }
+.soon-note { background: rgba(255,154,98,.12); border: 1px solid rgba(255,154,98,.45); border-radius: 12px; padding: 12px 14px; margin: 10px 0 14px; font-size: 14px; line-height: 1.45; }
+.btn.soon { opacity: .55; }
 </style>
 </head>
 <body>
@@ -427,7 +429,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
       <p class="note" id="resetNote" style="text-align:center"></p>
     </div>
     <div class="card" id="giftCard">
-      <div class="row"><h3>&#127873; Gift a brick</h3><span class="tag">R19</span></div>
+      <div class="row"><h3>&#127873; Gift a brick</h3><span class="tag" id="giftTag">R19</span></div>
       <p class="note">Place a brick for someone special, with their name on it, and send them the link. Birthdays, thank-yous, in memory of someone. It doesn't use up your own brick.</p>
       <button class="btn ghost" type="button" id="giftOpen">Gift a brick</button>
     </div>
@@ -438,6 +440,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     <div class="panel">
       <h2>Plans</h2>
       <p class="muted" style="font-size:14px">The daily brick is free forever. Extras stay low-priced so anyone can join.</p>
+        <div class="soon-note" id="payNote" hidden><b>Paid extras are coming soon.</b> We're setting up secure card payments. Everything free works as normal, so keep building your streak!</div>
         <p class="muted" id="fxNote" data-nolocal hidden style="font-size:13px;margin-top:-4px"></p>
       <div class="plans">
         <div class="plan"><div class="row"><h3>Builder</h3><span class="amt">Free</span></div>
@@ -738,6 +741,13 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 <script>
 (function () {
   /* ---- Supabase connection (these two values are public and safe in the app) ---- */
+  // Paid extras: false = "coming soon" (no payments). Change to true once a payment provider is approved.
+  var PAYMENTS_ON = false;
+  function paymentsOff() {
+    if (PAYMENTS_ON) return false;
+    toast('Paid extras are coming soon. Everything free still works: place your brick every day!');
+    return true;
+  }
   var SUPABASE_URL = 'https://ylrkjnfoiezdvpsyegni.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_6pGTx_YoFZtaF64OleMP9g_RtZsiOIm';
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1094,8 +1104,9 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     var done = placedToday(), btn = $('placeBtn'), cost = total(), biz = bizActive(), left = dailyLimit() - todayCount;
     var upgrade = biz ? todayCount > 0 : done;
     var rw = rewardFinish();
-    btn.disabled = busy || (done && !cost && !rw);
+    btn.disabled = busy || (done && !cost && !rw) || (!!cost && !PAYMENTS_ON);
     if (busy) btn.textContent = 'Please wait…';
+    else if (cost && !PAYMENTS_ON) btn.textContent = 'Paid extras coming soon';
     else if (cost) btn.textContent = upgrade ? 'Pay R' + cost + (biz ? ' to upgrade your latest brick' : ' to upgrade today\'s brick') : 'Pay R' + cost + ' and place brick';
     else if (rw) btn.textContent = supporterActive() ? (upgrade ? 'Add your supporter finish to today\'s brick' : 'Place brick with your supporter finish') : (upgrade ? 'Use your free reward on today\'s brick' : 'Place brick with your free reward');
     else if (done) btn.textContent = 'Come back tomorrow';
@@ -1251,6 +1262,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     return false;
   }
   async function payForExtras() {
+    if (paymentsOff()) return;
     if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
     var wasPlaced = placedToday(), hadPhoto = !!sel.blob, photoPath = null;
     busy = true; render();
@@ -1280,6 +1292,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     });
   }
   async function payBusiness(name) {
+    if (paymentsOff()) return;
     if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
     var r = await sb.functions.invoke('smooth-action', { body: { action: 'business', business_name: name } });
     if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
@@ -1440,6 +1453,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   }
   $('buyFreeze').addEventListener('click', async function () {
     if (!user) return;
+    if (paymentsOff()) return;
     if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
     var r = await sb.functions.invoke('smooth-action', { body: { action: 'freeze' } });
     if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
@@ -1921,6 +1935,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 
   /* ---- simple purchases: supporter pass ---- */
   async function payItem(action, okMsg) {
+    if (paymentsOff()) return;
     if (!user) { show('me'); toast('Create an account or log in first.'); return; }
     if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
     var r = await sb.functions.invoke('smooth-action', { body: { action: action } });
@@ -2205,6 +2220,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     drawBrick(g, 8, 12, 224, 88, sel.c, false, sel.f, ($('giftTo').value.trim() || 'THEIR NAME'), null, profile && profile.country);
   }
   function openGift() {
+    if (paymentsOff()) return;
     if (!user) { show('me'); toast('Create an account or log in first, then you can gift a brick.'); return; }
     $('giftForm').hidden = false; $('giftDone').hidden = true; $('giftSheet').hidden = false; drawGiftPreview();
     setTimeout(function () { try { $('giftTo').focus(); } catch (e) {} }, 100);
@@ -2322,7 +2338,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     if (xmasSeason()) c.push({ id: 'xmas-here-' + new Date().getUTCFullYear(), art: 'xmas', title: 'Christmas bricks are here!', body: 'Free Christmas colours for everyone, plus snow-capped, candy cane and fairy-light bricks. Until 6 January.', go: 'Place a Christmas brick', action: { type: 'place' } });
     else if (soon > 0 && soon <= 10) c.push({ id: 'xmas-soon-' + new Date().getUTCFullYear(), art: 'xmas', title: 'Christmas bricks are coming', body: 'In ' + soon + (soon === 1 ? ' day' : ' days') + ': free festive colours, plus snow-capped, candy cane and fairy-light bricks. Keep your streak going until then!', go: 'Place today’s brick', action: { type: 'place' } });
     if (raceData && raceData.next) c.push({ id: 'race-' + raceData.next, art: 'race', title: 'Race to brick #' + fmt(raceData.next), body: 'Only ' + fmt(Math.max(0, raceData.next - raceData.total)) + ' bricks to go! Whoever places brick #' + fmt(raceData.next) + ' wins a free Gold brick and a month of Supporter.', go: 'Place my brick', action: { type: 'place' } });
-    c.push({ id: 'gift-launch', art: 'gift', artData: { to_name: 'FOR YOU', color: '#5fa3b0' }, title: 'New: Gift a brick', body: 'Place a brick for someone special with their name on it, and send them the link. Perfect for birthdays and thank-yous. R19.', go: 'Gift a brick', action: { type: 'gift' } });
+    if (PAYMENTS_ON) c.push({ id: 'gift-launch', art: 'gift', artData: { to_name: 'FOR YOU', color: '#5fa3b0' }, title: 'New: Gift a brick', body: 'Place a brick for someone special with their name on it, and send them the link. Perfect for birthdays and thank-yous. R19.', go: 'Gift a brick', action: { type: 'gift' } });
     c = c.filter(function (o) { return Number(lsGet('db_pop_' + o.id) || 0) < 3; });
     if (!c.length) return;
     c.sort(function (x, y) { return Number(lsGet('db_pop_' + x.id) || 0) - Number(lsGet('db_pop_' + y.id) || 0); });
@@ -2417,6 +2433,10 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   renderRemind(false);
   loadWall().then(loadRace);
   setTimeout(startPopups, 1500);
+  if (!PAYMENTS_ON) {
+    $('payNote').hidden = false; $('giftTag').textContent = 'Coming soon'; $('giftOpen').textContent = 'Coming soon';
+    ['bizBuyBtn', 'supBuy', 'buyFreeze'].forEach(function (id) { var b = $(id); if (b) b.classList.add('soon'); });
+  }
   localPrices();
   setInterval(resetNote, 1000);
   setInterval(function () { loadWall().then(loadRace); }, 60000);
