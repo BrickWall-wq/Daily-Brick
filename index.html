@@ -101,6 +101,21 @@ main { padding-block: 18px 110px; }
 /* wall canvas */
 .wallwrap { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--mortar); }
 .wallwrap.thud { animation: thud .5s ease-out; }
+.wallscroll { max-height: min(62vh, 560px); overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #5fd6c4 transparent; }
+.wallscroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.wallscroll.mouse { cursor: grab; }
+.wallscroll.dragging { cursor: grabbing; }
+#wall { max-width: none; }
+.wallzoom { position: absolute; top: 10px; left: 10px; display: flex; border: 1px solid #5fd6c4; background: rgba(10, 26, 36, .92); border-radius: 999px; overflow: hidden; }
+.wallzoom button { border: 0; background: none; color: #f1f7f4; font: 700 18px/1 Figtree, sans-serif; width: 40px; height: 34px; cursor: pointer; }
+.wallzoom button + button { border-left: 1px solid #25525f; }
+.wallzoom button:disabled { opacity: .35; cursor: default; }
+.wallzoom button:focus-visible { outline: 2px solid #f1f7f4; outline-offset: -3px; }
+.wallscroll::-webkit-scrollbar-thumb { background: #5fd6c4; border-radius: 3px; }
+.wallfade { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; pointer-events: none; background: linear-gradient(rgba(7, 24, 32, 0), rgba(7, 24, 32, .9)); transition: opacity .2s; }
+.wallfade.off { opacity: 0; }
+.walltop { position: absolute; top: 10px; right: 10px; border: 1px solid #5fd6c4; background: rgba(10, 26, 36, .92); color: #f1f7f4; border-radius: 999px; padding: 6px 12px; font: 600 13px Figtree, sans-serif; cursor: pointer; }
+.walltop:focus-visible { outline: 2px solid #f1f7f4; outline-offset: 2px; }
 @keyframes thud { 0% { transform: translateY(0); } 20% { transform: translateY(5px); } 45% { transform: translateY(-3px); } 100% { transform: translateY(0); } }
 canvas { display: block; width: 100%; height: auto; touch-action: manipulation; }
 .tip { position: absolute; left: 10px; right: 10px; bottom: 10px; background: var(--ink); color: var(--night); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
@@ -371,12 +386,18 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     </div>
 
     <div class="wallwrap" id="wallwrap">
-      <canvas id="wall" width="1040" height="640" aria-label="The newest section of the wall. Tap a brick to see who placed it."></canvas>
+      <div class="wallscroll" id="wallscroll">
+        <canvas id="wall" width="1040" height="640" aria-label="The whole wall, newest bricks at the top. Scroll down for older bricks. Tap a brick to see who placed it."></canvas>
+      </div>
+      <div class="wallfade" id="wallfade"></div>
+      <div class="wallzoom"><button type="button" id="wzOut" aria-label="Zoom out">&minus;</button><button type="button" id="wzIn" aria-label="Zoom in">+</button></div>
+      <button class="walltop" id="walltop" type="button" hidden>&uarr; Newest</button>
       <div class="tip" id="tip" hidden></div>
     </div>
     <div class="legend">
       <span><i class="sw" style="background:var(--coral)"></i>Your bricks</span>
       <span><i class="sw" style="border:1px dashed var(--coral)"></i>Next brick goes here</span>
+      <span>Drag the wall to look around · older bricks are further down</span>
     </div>
     <button class="btn view3d" type="button" id="open3d"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z M3 7l9 5 9-5 M12 12v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>See the wall in 3D</button>
     <button class="btn" type="button" id="heroPlace">Place today's brick</button>
@@ -769,7 +790,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   var FIN_NAMES = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights', flag: 'Flag' };
   var CORAL = '#ff9a62';
   var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var COLS = 13, BW = 80, BH = 40, ROWS = 16, SHOW = COLS * ROWS;
+  var COLS = 13, BW = 80, BH = 40, SHOW = 1000; // the flat wall loads the newest 1,000 bricks and scrolls
 
   var user = null, profile = null, bricks = [], wallTotal = 0, busy = false;
   var sel = { c: COLORS[5].c, f: 'plain', photo: null, blob: null };
@@ -1002,8 +1023,13 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   }
   var hit = [];
   function drawWall() {
-    var cv = $('wall'), n = bricks.length;
-    cv.height = Math.min(ROWS, Math.max(4, Math.ceil((n + 1) / COLS))) * BH;
+    var cv = $('wall'), n = bricks.length, sc = $('wallscroll'), oldH = cv.getBoundingClientRect().height;
+    cv.height = Math.max(4, Math.ceil((n + 1) / COLS)) * BH;
+    sizeWall();
+    // newest bricks sit at the top: if a new row appears while someone is looking further down, keep their place
+    var newH = cv.getBoundingClientRect().height;
+    if (oldH && sc.scrollTop > 4 && newH > oldH) sc.scrollTop += newH - oldH;
+    wallScrolled();
     var ctx = cv.getContext('2d'), H = cv.height;
     ctx.fillStyle = '#071820'; ctx.fillRect(0, 0, cv.width, H); hit = [];
     function pos(i) { var row = Math.floor(i / COLS), col = i % COLS, off = row % 2 ? 0 : BW / 2; return { x: col * BW + off - BW / 2 + 4, y: H - (row + 1) * BH }; }
@@ -1014,10 +1040,59 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
       hit.push({ x: p.x + 2, y: p.y + 2, w: BW - 4, h: BH - 4, b: b, mine: mine });
     });
     drawBanners(ctx, pos);
-    if (n < SHOW) { var f = pos(n); ctx.setLineDash([6, 5]); ctx.strokeStyle = CORAL; ctx.lineWidth = 2; ctx.strokeRect(f.x + 4, f.y + 4, BW - 8, BH - 8); ctx.setLineDash([]); }
+    { var f = pos(n); ctx.setLineDash([6, 5]); ctx.strokeStyle = CORAL; ctx.lineWidth = 2; ctx.strokeRect(f.x + 4, f.y + 4, BW - 8, BH - 8); ctx.setLineDash([]); }
+    wallPos = pos;
+    if (wallFirst && n) { wallFirst = false; focusNewest(false); }
     if (!n) { ctx.fillStyle = '#8fb4b8'; ctx.font = '600 30px Figtree, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('The wall starts here. Be the first builder!', cv.width / 2, H / 2); }
   }
+  // Zoom levels for the flat wall: 0 = fit the whole width; the others are the brick size compared with full size
+  var WZ = [0, 0.55, 0.75, 1], wz = 2, wallPos = null, wallFirst = true;
+  try { var wzs = parseInt(localStorage.getItem('db_wall_zoom'), 10); if (wzs >= 0 && wzs < WZ.length) wz = wzs; } catch (e) {}
+  function sizeWall() {
+    var cv = $('wall');
+    cv.style.width = WZ[wz] ? Math.round(cv.width * WZ[wz]) + 'px' : '100%';
+    $('wzOut').disabled = wz === 0; $('wzIn').disabled = wz === WZ.length - 1;
+  }
+  function focusNewest(smooth) {
+    if (!wallPos) return;
+    var cv = $('wall'), sc = $('wallscroll'), k = cv.getBoundingClientRect().width / cv.width, f = wallPos(bricks.length);
+    sc.scrollTo({ top: Math.max(0, f.y * k - 40), left: Math.max(0, (f.x + BW / 2) * k - sc.clientWidth / 2), behavior: smooth && !reduced ? 'smooth' : 'auto' });
+  }
+  function setZoom(z) {
+    if (z < 0 || z >= WZ.length || z === wz) return;
+    var sc = $('wallscroll'), fx = (sc.scrollLeft + sc.clientWidth / 2) / sc.scrollWidth, fy = (sc.scrollTop + sc.clientHeight / 2) / sc.scrollHeight;
+    wz = z; try { localStorage.setItem('db_wall_zoom', z); } catch (e) {}
+    sizeWall();
+    sc.scrollLeft = fx * sc.scrollWidth - sc.clientWidth / 2; sc.scrollTop = fy * sc.scrollHeight - sc.clientHeight / 2;
+    $('tip').hidden = true; wallScrolled();
+  }
+  $('wzIn').addEventListener('click', function () { setZoom(wz + 1); });
+  $('wzOut').addEventListener('click', function () { setZoom(wz - 1); });
+  // drag to look around with a mouse (fingers already scroll the window)
+  var drag = null, dragged = false;
+  $('wallscroll').addEventListener('pointerdown', function (e) {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    var sc = e.currentTarget; drag = { x: e.clientX, y: e.clientY, l: sc.scrollLeft, t: sc.scrollTop }; dragged = false;
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!dragged && Math.abs(dx) + Math.abs(dy) < 6) return;
+    dragged = true; var sc = $('wallscroll'); sc.classList.add('dragging');
+    sc.scrollLeft = drag.l - dx; sc.scrollTop = drag.t - dy;
+  });
+  window.addEventListener('pointerup', function () { if (drag) { drag = null; $('wallscroll').classList.remove('dragging'); } });
+  if (window.matchMedia && matchMedia('(pointer: fine)').matches) $('wallscroll').classList.add('mouse');
+  function wallScrolled() {
+    var sc = $('wallscroll');
+    $('wallfade').classList.toggle('off', sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4);
+    $('walltop').hidden = !wallPos || (function () { var cv = $('wall'), k = cv.getBoundingClientRect().width / cv.width, f = wallPos(bricks.length), x = (f.x + BW / 2) * k, y = (f.y + BH / 2) * k; return x > sc.scrollLeft && x < sc.scrollLeft + sc.clientWidth && y > sc.scrollTop && y < sc.scrollTop + sc.clientHeight; })();
+  }
+  $('wallscroll').addEventListener('scroll', function () { wallScrolled(); if (!$('tip').hidden) $('tip').hidden = true; }, { passive: true });
+  $('walltop').addEventListener('click', function () { focusNewest(true); });
+  window.addEventListener('resize', wallScrolled);
   $('wall').addEventListener('click', function (e) {
+    if (dragged) { dragged = false; return; }
     var cv = e.currentTarget, r = cv.getBoundingClientRect(), px = (e.clientX - r.left) * (cv.width / r.width), py = (e.clientY - r.top) * (cv.height / r.height);
     var h = null; for (var i = 0; i < hit.length; i++) { var q = hit[i]; if (px >= q.x && px <= q.x + q.w && py >= q.y && py <= q.y + q.h) { h = q; break; } }
     var tip = $('tip'); if (!h) { tip.hidden = true; return; }
@@ -1240,7 +1315,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
       document.body.appendChild(s); (function (el) { setTimeout(function () { el.remove(); }, 3200); })(s);
     }
   }
-  function thud() { var w = $('wallwrap'); w.classList.remove('thud'); void w.offsetWidth; w.classList.add('thud'); }
+  function thud() { focusNewest(true); var w = $('wallwrap'); w.classList.remove('thud'); void w.offsetWidth; w.classList.add('thud'); }
 
   async function celebrate(msg) {
     await loadProfile(); await loadWall(); loadRace();
