@@ -29,7 +29,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://js.paystack.co/v2/inline.js" defer></script>
 <style>
 [hidden] { display: none !important; }
 body { padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -468,13 +467,13 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
           <ul><li>One brick every day</li><li>8 colours</li><li>Write your initials or a short word on it</li><li>Streaks, rewards and your spot on the wall</li></ul></div>
         <div class="plan hl"><div class="row"><h3>Brick extras</h3><span class="amt">R19 each</span></div>
           <ul><li>Gold leaf, glazed or carved finish</li><li>Upgrade today's brick even after placing it</li><li>Pay only on the days you want it (about $1)</li><li>Put a photo or picture on your brick</li></ul></div>
-        <div class="plan" id="bizPlan"><div class="row"><h3>Business</h3><span class="amt">R89 / month</span></div>
-          <ul><li>Up to 10 bricks a day, every day</li><li>Your logo built into the wall, with a link to your website</li><li>Renews every month. Cancel anytime, right here</li></ul>
+        <div class="plan" id="bizPlan"><div class="row"><h3>Business</h3><span class="amt">R89 / 30 days</span></div>
+          <ul><li>Up to 10 bricks a day, every day</li><li>Your logo built into the wall, with a link to your website</li><li>30 days per payment. No automatic charges, nothing to cancel</li></ul>
           <div class="form" id="bizBuy">
             <label class="label" for="bizNameIn">Business name</label>
             <input type="text" id="bizNameIn" maxlength="24" placeholder="Your business name" autocomplete="organization">
-            <button class="btn" type="button" id="bizBuyBtn">Subscribe for R89 a month</button>
-            <p class="note">Charged to your card every month until you cancel. Cancel anytime on this screen.</p>
+            <button class="btn" type="button" id="bizBuyBtn">Get Business for R89 (30 days)</button>
+            <p class="note">Paid once by card through iKhokha. It doesn't renew by itself: come back and add 30 days whenever you like.</p>
           </div>
           <div class="form" id="bizManage" hidden>
             <p class="ok" id="bizActive"></p>
@@ -492,10 +491,10 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
               <div class="acts2"><button class="btn ghost" type="button" id="bizSubBtn"></button><button class="btn ghost" type="button" id="bizCardBtn" hidden>Update card</button></div></div>
           </div>
         </div>
-        <div class="plan" id="supPlan"><div class="row"><h3>Supporter pass</h3><span class="amt">R29 / month</span></div>
-          <ul><li>Gold leaf, glazed and carved finishes included, every day</li><li>Christmas finishes included in the festive season</li><li>A streak freeze with every pass</li><li>A Supporter badge on your bricks</li><li>Helps keep Daily Brick growing</li><li>Renews every month. Cancel anytime, right here</li></ul>
+        <div class="plan" id="supPlan"><div class="row"><h3>Supporter pass</h3><span class="amt">R29 / 30 days</span></div>
+          <ul><li>Gold leaf, glazed and carved finishes included, every day</li><li>Christmas finishes included in the festive season</li><li>A streak freeze with every pass</li><li>A Supporter badge on your bricks</li><li>Helps keep Daily Brick growing</li><li>30 days per payment. No automatic charges, nothing to cancel</li></ul>
           <p class="ok" id="supActive" hidden></p>
-          <button class="btn" type="button" id="supBuy">Subscribe for R29 a month</button>
+          <button class="btn" type="button" id="supBuy">Get the pass for R29 (30 days)</button>
           <div class="subbox" id="supSub" hidden><p class="note" id="supSubText"></p>
             <div class="acts2"><button class="btn ghost" type="button" id="supCancel">Cancel subscription</button><button class="btn ghost" type="button" id="supCard" hidden>Update card</button></div></div>
         </div>
@@ -764,7 +763,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 (function () {
   /* ---- Supabase connection (these two values are public and safe in the app) ---- */
   // Paid extras: false = "coming soon" (no payments). Change to true once a payment provider is approved.
-  var PAYMENTS_ON = false;
+  var PAYMENTS_ON = true;
   function paymentsOff() {
     if (PAYMENTS_ON) return false;
     toast('Paid extras are coming soon. Everything free still works: place your brick every day!');
@@ -1337,9 +1336,54 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     }
     return false;
   }
+  /* ---- card payments: iKhokha iK Pay. The app gets a secure payment page, goes there, and comes back. ---- */
+  function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  async function startPay(body, info) {
+    if (paymentsOff()) return false;
+    if (!user) { show('me'); toast('Create an account or log in first.'); return false; }
+    var r = await sb.functions.invoke('smooth-action', { body: body });
+    if (r.error || !r.data || !r.data.pay_url) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return false; }
+    lsSet('db_pay', JSON.stringify(Object.assign({ ref: r.data.reference, at: Date.now() }, info || {})));
+    toast('Opening the secure card payment…');
+    location.href = r.data.pay_url;
+    return true;
+  }
+  var PAID_MSG = {
+    extras: function (i) { return i.hadPhoto ? 'Thank you! Everyone will see your photo once it is approved.' : i.wasPlaced ? 'Your brick is upgraded. Thank you!' : 'Your special brick is on the wall. Thank you!'; },
+    business: function () { return 'Business plan active for 30 days! Add your logo, then place up to 10 bricks a day.'; },
+    supporter: function () { return 'You\'re a supporter for 30 days! All finishes are included. Thank you.'; },
+    freeze: function () { return 'Streak freeze added. Your streak is safer now.'; }
+  };
+  // Back from the payment page: ?paid=REF, ?payfail=REF or ?paycancel=REF
+  async function payReturn() {
+    var m = location.search.match(/[?&](paid|payfail|paycancel)=(db[0-9a-f]{32})/);
+    if (!m) return;
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    var info = {}; try { info = JSON.parse(localStorage.getItem('db_pay') || '{}') || {}; } catch (e) {}
+    lsSet('db_pay', null);
+    if (m[1] !== 'paid') { toast(m[1] === 'paycancel' ? 'Payment cancelled. Nothing was charged.' : 'The payment didn\'t go through. Nothing was charged, so you can try again.'); return; }
+    toast('Payment received. Adding it to your account…');
+    var res = null;
+    for (var i = 0; i < 6 && !(res && res.ok); i++) {
+      var v = await sb.functions.invoke('smooth-action', { body: { action: 'verify', reference: m[2] } });
+      res = v.data || null;
+      if (!(res && res.ok)) await new Promise(function (r) { setTimeout(r, 2500); });
+    }
+    await loadProfile(); await loadWall(); loadRace();
+    if (!(res && res.ok)) { toast('Payment received. It will show up in a minute or two.'); return; }
+    var kind = res.kind || info.kind || 'extras';
+    if (kind === 'gift') {
+      giftName = res.to_name || info.to || 'your friend'; giftUrl = location.origin + '/?gift=' + (res.gift_code || '');
+      $('giftLink').value = giftUrl; $('giftDoneText').textContent = 'Your brick for ' + giftName + ' is on the wall! Send them the link:';
+      $('giftForm').hidden = true; $('giftDone').hidden = false; $('giftSheet').hidden = false; confetti();
+      return;
+    }
+    show(kind === 'extras' ? 'wall' : 'plans');
+    var msg = (PAID_MSG[kind] || PAID_MSG.extras)(info);
+    if (kind === 'extras') celebrate(msg); else { confetti(); toast(msg); }
+  }
   async function payForExtras() {
     if (paymentsOff()) return;
-    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
     var wasPlaced = placedToday(), hadPhoto = !!sel.blob, photoPath = null;
     busy = true; render();
     if (sel.blob) {
@@ -1347,43 +1391,12 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
       var up = await sb.storage.from('brick-photos').upload(photoPath, sel.blob, { contentType: 'image/jpeg' });
       if (up.error) { busy = false; render(); toast('Your photo could not be uploaded. Check your connection and try again.'); return; }
     }
-    var r = await sb.functions.invoke('smooth-action', { body: { action: 'create', color: sel.c, finish: sel.f, inscription: $('inscr').value.trim(), photo_path: photoPath } });
-    if (r.error || !r.data || !r.data.access_code) {
-      busy = false; render();
-      toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.'));
-      return;
-    }
-    var ref = r.data.reference;
-    var popup = new PaystackPop();
-    popup.resumeTransaction(r.data.access_code, {
-      onSuccess: async function () {
-        toast('Payment received. Adding your extras\u2026');
-        var ok = await verifyPayment(ref);
-        busy = false; resetExtras(); render();
-        if (ok) celebrate(hadPhoto ? 'Thank you! Everyone will see your photo once it is approved.' : wasPlaced ? 'Your brick is upgraded. Thank you!' : 'Your special brick is on the wall. Thank you!');
-        else toast('Payment received. Your brick will update in a minute or two.');
-      },
-      onCancel: function () { busy = false; render(); toast('Payment cancelled. Nothing was charged.'); },
-      onError: function (e) { busy = false; render(); toast((e && e.message) || 'The payment could not be completed.'); }
-    });
+    var went = await startPay({ action: 'create', color: sel.c, finish: sel.f, inscription: $('inscr').value.trim(), photo_path: photoPath },
+      { kind: 'extras', wasPlaced: wasPlaced, hadPhoto: hadPhoto });
+    if (!went) { busy = false; render(); }
   }
   async function payBusiness(name) {
-    if (paymentsOff()) return;
-    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
-    var r = await sb.functions.invoke('smooth-action', { body: { action: 'business', business_name: name } });
-    if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
-    var ref = r.data.reference, wasActive = bizActive();
-    new PaystackPop().resumeTransaction(r.data.access_code, {
-      onSuccess: async function () {
-        toast('Payment received. Switching on your business plan…');
-        var ok = await verifyPayment(ref);
-        await loadProfile(); await loadWall();
-        if (ok) { confetti(); toast(wasActive ? 'Monthly renewal is on. Thank you!' : 'Business plan active! It renews monthly. Add your logo, then place up to 10 bricks a day.'); }
-        else toast('Payment received. Your plan will switch on in a minute or two.');
-      },
-      onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
-      onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
-    });
+    await startPay({ action: 'business', business_name: name }, { kind: 'business' });
   }
   $('bizBuyBtn').addEventListener('click', function () {
     if (!user) { show('me'); toast('Create an account or log in first.'); return; }
@@ -1403,31 +1416,15 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   function subLive(s) { return s && (s.status === 'active' || s.status === 'pending' || s.status === 'attention'); }
   function renderSubs() {
     if (!profile) return;
-    // business (only shown while the plan is active; the buy form shows otherwise)
-    var b = subs.business, bt = $('bizSubText'), bb = $('bizSubBtn');
-    bb.classList.remove('warn'); bb.dataset.armed = '';
-    $('bizCardBtn').hidden = !(subLive(b) && b.status !== 'pending');
-    if (subLive(b)) {
-      bt.textContent = b.status === 'attention' ? 'Your last monthly payment didn\'t go through. Update your card to keep your plan.'
-        : b.status === 'pending' ? 'Monthly renewal is being set up. R89 a month.'
-        : 'Renews automatically on ' + longDate(b.next_payment_date || profile.business_until) + ' for R89.';
-      bb.textContent = 'Cancel subscription'; bb.dataset.mode = 'cancel';
-    } else {
-      bt.textContent = bizActive() ? 'Your plan doesn\'t renew. It ends on ' + longDate(profile.business_until) + '.' : '';
-      bb.textContent = 'Turn on monthly renewal (R89 a month)'; bb.dataset.mode = 'buy';
-    }
-    // supporter
-    var s = subs.supporter, sa = supporterActive();
-    $('supSub').hidden = !subLive(s) && !sa;
-    $('supBuy').hidden = subLive(s);
-    $('supBuy').textContent = sa ? 'Turn on monthly renewal (R29 a month)' : 'Subscribe for R29 a month';
-    $('supCard').hidden = !(subLive(s) && s.status !== 'pending');
-    $('supCancel').hidden = !subLive(s); $('supCancel').classList.remove('warn'); $('supCancel').dataset.armed = ''; $('supCancel').textContent = 'Cancel subscription';
-    $('supSubText').textContent = subLive(s)
-      ? (s.status === 'attention' ? 'Your last monthly payment didn\'t go through. Update your card to keep your pass.'
-        : s.status === 'pending' ? 'Monthly renewal is being set up. R29 a month.'
-        : 'Renews automatically on ' + longDate(s.next_payment_date || profile.supporter_until) + ' for R29.')
-      : sa ? 'Your pass doesn\'t renew. It ends on ' + longDate(profile.supporter_until) + '.' : '';
+    // Plans are 30-day passes paid by card. Nothing renews by itself, so there is nothing to cancel.
+    var bt = $('bizSubText'), bb = $('bizSubBtn');
+    bb.classList.remove('warn'); bb.dataset.armed = ''; $('bizCardBtn').hidden = true;
+    bt.textContent = bizActive() ? 'Your plan runs until ' + longDate(profile.business_until) + '. Add another 30 days any time.' : '';
+    bb.textContent = 'Add 30 days (R89)'; bb.dataset.mode = 'buy';
+    var sa = supporterActive();
+    $('supSub').hidden = !sa; $('supBuy').hidden = false; $('supCard').hidden = true; $('supCancel').hidden = true;
+    $('supBuy').textContent = sa ? 'Add 30 days (R29)' : 'Get the pass for R29 (30 days)';
+    $('supSubText').textContent = sa ? 'Your pass runs until ' + longDate(profile.supporter_until) + '. Add another 30 days any time.' : '';
   }
   // cancelling needs two taps, so nobody cancels by accident
   async function cancelSub(kind, btn) {
@@ -1529,20 +1526,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   }
   $('buyFreeze').addEventListener('click', async function () {
     if (!user) return;
-    if (paymentsOff()) return;
-    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
-    var r = await sb.functions.invoke('smooth-action', { body: { action: 'freeze' } });
-    if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
-    var ref = r.data.reference;
-    new PaystackPop().resumeTransaction(r.data.access_code, {
-      onSuccess: async function () {
-        var ok = await verifyPayment(ref);
-        await loadProfile();
-        toast(ok ? 'Streak freeze added. Your streak is safer now.' : 'Payment received. Your freeze will appear in a minute or two.');
-      },
-      onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
-      onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
-    });
+    await startPay({ action: 'freeze' }, { kind: 'freeze' });
   });
   $('placeBtn').addEventListener('click', async function () {
     if (!user || busy) return;
@@ -2010,24 +1994,10 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   $('shareClose').addEventListener('click', function () { $('shareCard').hidden = true; });
 
   /* ---- simple purchases: supporter pass ---- */
-  async function payItem(action, okMsg) {
-    if (paymentsOff()) return;
-    if (!user) { show('me'); toast('Create an account or log in first.'); return; }
-    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
-    var r = await sb.functions.invoke('smooth-action', { body: { action: action } });
-    if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
-    var ref = r.data.reference;
-    new PaystackPop().resumeTransaction(r.data.access_code, {
-      onSuccess: async function () {
-        var ok = await verifyPayment(ref);
-        await loadProfile(); await loadWall();
-        if (ok) { confetti(); toast(okMsg); } else toast('Payment received. It will show up in a minute or two.');
-      },
-      onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
-      onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
-    });
+  async function payItem(action) {
+    await startPay({ action: action }, { kind: action });
   }
-  $('supBuy').addEventListener('click', function () { payItem('supporter', 'You\'re a supporter! All finishes are included, and it renews monthly. Thank you.'); });
+  $('supBuy').addEventListener('click', function () { payItem('supporter'); });
 
   /* ---- daily reminders (push notifications) ---- */
   var pushOK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -2315,29 +2285,9 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   $('giftPay').addEventListener('click', async function () {
     var to = $('giftTo').value.trim(), note = $('giftNote').value.trim();
     if (!to) { toast('Write the name of the person the brick is for.'); return; }
-    if (typeof PaystackPop === 'undefined') { toast('Payments are still loading. Try again in a moment.'); return; }
     var btn = $('giftPay'); btn.disabled = true;
-    var r = await sb.functions.invoke('smooth-action', { body: { action: 'gift', to_name: to, note: note, color: sel.c, finish: sel.f } });
-    btn.disabled = false;
-    if (r.error || !r.data || !r.data.access_code) { toast(friendly(r.error ? await fnError(r.error) : 'Could not start the payment.')); return; }
-    var ref = r.data.reference;
-    new PaystackPop().resumeTransaction(r.data.access_code, {
-      onSuccess: async function () {
-        var code = null;
-        for (var i = 0; i < 4 && !code; i++) {
-          var v = await sb.functions.invoke('smooth-action', { body: { action: 'verify', reference: ref } });
-          if (!v.error && v.data && v.data.ok) code = v.data.gift_code || 'done';
-          else await new Promise(function (res) { setTimeout(res, 2000); });
-        }
-        loadWall(); loadRace();
-        if (!code) { toast('Payment received. Your gift brick will show up in a minute or two.'); return; }
-        giftName = to; giftUrl = location.origin + '/?gift=' + (code === 'done' ? '' : code);
-        $('giftLink').value = giftUrl; $('giftDoneText').textContent = 'Your brick for ' + to + ' is on the wall! Send them the link:';
-        $('giftForm').hidden = true; $('giftDone').hidden = false; confetti();
-      },
-      onCancel: function () { toast('Payment cancelled. Nothing was charged.'); },
-      onError: function (e) { toast((e && e.message) || 'The payment could not be completed.'); }
-    });
+    var went = await startPay({ action: 'gift', to_name: to, note: note, color: sel.c, finish: sel.f }, { kind: 'gift', to: to });
+    if (!went) btn.disabled = false;
   });
 
   /* ---- pop-ups: a gift someone sent you, your announcement, or the app's own news ---- */
@@ -2503,6 +2453,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   setMode('signup'); drawPreview(); render();
   sb.auth.getSession().then(function (r) {
     user = r.data.session ? r.data.session.user : null; loadProfile();
+    payReturn();
     if (window.__invited && !user) setTimeout(function () { toast('A friend invited you! Sign up and place your first brick to get a free Glazed brick.'); }, 800);
     if (location.hash === '#place') { show(user ? 'place' : 'me'); try { history.replaceState(null, '', location.pathname); } catch (e) {} }
   });
