@@ -27,6 +27,12 @@
   // (the first one starts clear of the half brick that the section before pokes into this one)
   var EMB_COLS = [1.55, 4.834, 8.118, 11.402, 14.686, 17.97];
   function secStartX(sec) { return START + sec * SECT_LEN; }
+  // Christmas look from 15 November to 6 January (South African time). Add ?xmas=1 to the address to preview it.
+  function festive() {
+    if (/[?&]xmas=1/.test(location.search)) return true;
+    var d = new Date(Date.now() + 2 * 3600e3), m = d.getUTCMonth() + 1, day = d.getUTCDate();
+    return (m === 11 && day >= 15) || m === 12 || (m === 1 && day <= 6);
+  }
 
   function layout(rows) {
     var out = { bricks: [], emblems: [], cap: {} };
@@ -149,6 +155,7 @@
     var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     var small = Math.min(window.innerWidth, window.innerHeight) < 600;
     var L = layout(data.bricks);
+    var XMAS = festive();
     var nBricks = data.bricks.length;
     countEl.textContent = nBricks.toLocaleString('en-US');
 
@@ -195,10 +202,10 @@
     var sky = new THREE.Mesh(new THREE.SphereGeometry(1200, 32, 20), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
     scene.add(sky);
     scene.fog = new THREE.Fog(0xcf8f78, 180, 780);
-    scene.add(new THREE.HemisphereLight(0xffe6c8, 0x2c4a3c, 0.62));
+    scene.add(XMAS ? new THREE.HemisphereLight(0xdfe9f7, 0x3a4a52, 0.6) : new THREE.HemisphereLight(0xffe6c8, 0x2c4a3c, 0.62));
     scene.add(new THREE.AmbientLight(0xffffff, 0.1));
     var SUN_DIR = new THREE.Vector3(-0.55, 0.62, -0.56).normalize();
-    var sun = new THREE.DirectionalLight(0xffd7b0, 1.0); sun.castShadow = true;
+    var sun = new THREE.DirectionalLight(XMAS ? 0xffe2c8 : 0xffd7b0, XMAS ? 0.82 : 1.0); sun.castShadow = true;
     sun.shadow.mapSize.set(small ? 1024 : 2048, small ? 1024 : 2048);
     var SH = 46; sun.shadow.camera.left = -SH; sun.shadow.camera.right = SH; sun.shadow.camera.top = SH; sun.shadow.camera.bottom = -SH;
     sun.shadow.camera.near = 10; sun.shadow.camera.far = 300; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
@@ -214,27 +221,40 @@
       var W = span + 700, seg = Math.min(400, Math.round(W / 6.5));
       var geo = new THREE.PlaneGeometry(W, 900, seg, 140); geo.rotateX(-Math.PI / 2); geo.translate(wallEnd / 2, 0, 0);
       var pos = geo.attributes.position, cols = [], c = new THREE.Color();
-      var dirt = new THREE.Color('#8a7457'), gA = new THREE.Color('#2c5634'), gB = new THREE.Color('#41703c'), hill = new THREE.Color('#24564a'), dry = new THREE.Color('#77804a');
+      var dirt = new THREE.Color('#8a7457'), gA = new THREE.Color('#2c5634'), gB = new THREE.Color('#41703c'), hill = new THREE.Color('#24564a'), dry = new THREE.Color('#77804a'), snowCol = new THREE.Color('#d7e0ea');
       for (var i = 0; i < pos.count; i++) {
         var x = pos.getX(i), z = pos.getZ(i), y = height(x, z); pos.setY(i, y);
         c.copy(gA).lerp(gB, 0.5 + 0.5 * Math.sin(x * 0.21 + Math.sin(z * 0.17) * 2) * Math.cos(z * 0.13 + x * 0.05));
         c.lerp(dry, Math.max(0, Math.sin(x / 53 + z / 41)) * 0.35); c.lerp(hill, Math.min(1, y / 22) * 0.55);
         var d = Math.abs(z); if (d < 7) c.lerp(dirt, (7 - d) / 7 * 0.85);
+        if (XMAS) {
+          var drift = 0.55 + 0.3 * Math.sin(x * 0.09 + Math.cos(z * 0.07) * 3) * Math.cos(z * 0.11 - x * 0.03);
+          if (d < 7) drift *= 0.55 + 0.45 * d / 7;   // trodden snow next to the wall
+          c.lerp(snowCol, Math.min(0.92, drift + Math.min(1, y / 18) * 0.2));
+        }
         cols.push(c.r, c.g, c.b);
       }
       geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); geo.computeVertexNormals();
       var ground = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })); ground.receiveShadow = true; scene.add(ground);
       var N = small ? 260 : 420, d0 = new THREE.Object3D(), col = new THREE.Color(), greens = ['#2f5e3a', '#3b6e3f', '#47784a', '#2a5136', '#55824d'];
       var trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.14, 0.22, 1.4, 6), new THREE.MeshLambertMaterial({ color: 0x5a4030 }), N);
-      var crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.25, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), N);
+      var crown = new THREE.InstancedMesh(XMAS ? new THREE.ConeGeometry(1.3, 3.0, 7) : new THREE.IcosahedronGeometry(1.25, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), N);
+      var cap = XMAS ? new THREE.InstancedMesh(new THREE.ConeGeometry(0.86, 1.25, 7), new THREE.MeshLambertMaterial({ color: 0xf4f8fc }), N) : null;
+      if (XMAS) greens = ['#1f4a33', '#24563a', '#2c5f40', '#1b4430', '#335f45'];
       for (var t = 0; t < N; t++) {
         var x = wallEnd / 2 - W / 2 + rnd() * W, z = (rnd() < .5 ? -1 : 1) * (16 + Math.pow(rnd(), 1.6) * 360), y = height(x, z), s = 0.8 + rnd() * 1.4;
         d0.position.set(x, y + 0.7 * s, z); d0.rotation.set(0, rnd() * 6.28, 0); d0.scale.set(s, s, s); d0.updateMatrix(); trunk.setMatrixAt(t, d0.matrix);
-        d0.position.set(x, y + 1.9 * s, z); d0.scale.set(s, s * (1.1 + rnd() * .5), s); d0.updateMatrix(); crown.setMatrixAt(t, d0.matrix);
+        var sy = s * (1.1 + rnd() * .5);
+        if (XMAS) {
+          d0.position.set(x, y + 1.35 * s + 1.5 * sy, z); d0.scale.set(s, sy, s); d0.updateMatrix(); crown.setMatrixAt(t, d0.matrix);
+          d0.position.set(x, y + 1.35 * s + 2.42 * sy, z); d0.updateMatrix(); cap.setMatrixAt(t, d0.matrix);
+        } else {
+          d0.position.set(x, y + 1.9 * s, z); d0.scale.set(s, sy, s); d0.updateMatrix(); crown.setMatrixAt(t, d0.matrix);
+        }
         crown.setColorAt(t, col.set(greens[Math.floor(rnd() * greens.length)]));
       }
       crown.instanceColor.needsUpdate = true;
-      [trunk, crown].forEach(function (m) { m.castShadow = true; m.receiveShadow = true; scene.add(m); });
+      [trunk, crown].concat(cap ? [cap] : []).forEach(function (m) { m.castShadow = true; m.receiveShadow = true; scene.add(m); });
     })();
 
     /* bricks */
@@ -280,6 +300,14 @@
       var nm = Math.floor((doneX - START - 0.5) / 1.4), merl = new THREE.InstancedMesh(new THREE.BoxGeometry(0.62, 0.52, 0.34), new THREE.MeshLambertMaterial({ map: stoneTex(1, 1, '#9b9284') }), nm * 2);
       for (var k = 0; k < nm; k++) [-1, 1].forEach(function (side, j) { dummy.position.set(START + 0.5 + k * 1.4, TOP + 0.44, side * (BD / 2 - 0.06)); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); merl.setMatrixAt(k * 2 + j, dummy.matrix); });
       merl.castShadow = true; merl.receiveShadow = true; scene.add(merl);
+      if (XMAS) {
+        var snowMat = new THREE.MeshLambertMaterial({ color: 0xf4f8fc });
+        var sw = new THREE.Mesh(new THREE.BoxGeometry(doneX - START + 0.1, 0.1, BD - 0.75), snowMat);
+        sw.position.set((START + doneX) / 2, TOP + 0.22, 0); sw.receiveShadow = true; scene.add(sw);
+        var mcap = new THREE.InstancedMesh(new THREE.BoxGeometry(0.66, 0.1, 0.38), snowMat, nm * 2);
+        for (var k2 = 0; k2 < nm; k2++) [-1, 1].forEach(function (side, j) { dummy.position.set(START + 0.5 + k2 * 1.4, TOP + 0.75, side * (BD / 2 - 0.06)); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); mcap.setMatrixAt(k2 * 2 + j, dummy.matrix); });
+        scene.add(mcap);
+      }
       var towerMat = new THREE.MeshLambertMaterial({ map: stoneTex(2, 3, '#8f8576') }), capMat = new THREE.MeshLambertMaterial({ map: stoneTex(2, 1, '#7d7468') }), slitMat = new THREE.MeshBasicMaterial({ color: 0x1d1a17 });
       for (var t = 3; t <= doneSec + 1; t += 3) {
         var tx = secStartX(t) + STEP / 4;
@@ -488,6 +516,117 @@
       new THREE.LineDashedMaterial({ color: 0xffd7b0, dashSize: 1.6, gapSize: 1.2, transparent: true, opacity: .9 }));
     ghost.computeLineDistances(); scene.add(ghost);
 
+    /* Christmas: a decorated tree at the start, falling snow, and Santa's sleigh flying past now and then */
+    var xmas = null;
+    if (XMAS) xmas = (function () {
+      var g = new THREE.Group(); scene.add(g);
+      // the tree
+      var tx = START - 9, tz = -7, ty = height(tx, tz), tree = new THREE.Group();
+      var tTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.6, 8), new THREE.MeshLambertMaterial({ color: 0x5a3a24 })); tTrunk.position.y = 0.8; tree.add(tTrunk);
+      [[3.2, 3.4, 2.4], [2.6, 3.0, 4.1], [1.9, 2.6, 5.6], [1.2, 2.0, 6.9]].forEach(function (c) {
+        var cone = new THREE.Mesh(new THREE.ConeGeometry(c[0], c[1], 12), new THREE.MeshLambertMaterial({ color: 0x1f5a36 })); cone.position.y = c[2]; cone.castShadow = true; tree.add(cone);
+      });
+      var balls = [0xff3b4e, 0xffd23f, 0x4fc3ff, 0xff7ad9, 0xffffff];
+      var bulbs = [];
+      for (var i = 0; i < 46; i++) {
+        var h = 1.6 + rnd() * 5.6, rr = (1 - (h - 1.6) / 6.4) * 3.0 + 0.15, a = rnd() * 6.28;
+        var b = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: balls[i % balls.length] }));
+        b.position.set(Math.cos(a) * rr, h, Math.sin(a) * rr); tree.add(b); bulbs.push(b);
+      }
+      var star = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), new THREE.MeshBasicMaterial({ color: 0xffd65a })); star.position.y = 8.3; tree.add(star);
+      [[1.6, 0.9, 0xd8283b, 0xffd23f], [-1.4, 1.2, 0x2a9d6f, 0xffffff], [0.2, 1.9, 0x3b6fd8, 0xffd23f]].forEach(function (p) {
+        var box = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.9), new THREE.MeshLambertMaterial({ color: p[2] })); box.position.set(p[0], 0.35, p[1]); box.castShadow = true; tree.add(box);
+        var rib = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.72, 0.16), new THREE.MeshLambertMaterial({ color: p[3] })); rib.position.copy(box.position); tree.add(rib);
+      });
+      tree.position.set(tx, ty, tz); g.add(tree);
+
+      // falling snow around wherever you are looking
+      var NS = small ? 900 : 1800, BOX = 140, HT = 60, sp = new Float32Array(NS * 3), vel = new Float32Array(NS);
+      for (var n = 0; n < NS; n++) { sp[n * 3] = (rnd() - .5) * BOX; sp[n * 3 + 1] = rnd() * HT; sp[n * 3 + 2] = (rnd() - .5) * BOX; vel[n] = 2 + rnd() * 2.5; }
+      var sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+      var flake = canvasTex(32, 32, function (c, w, h) { var gr = c.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.5, 'rgba(255,255,255,.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, w, h); });
+      flake.wrapS = flake.wrapT = THREE.ClampToEdgeWrapping;
+      var snow = new THREE.Points(sg, new THREE.PointsMaterial({ size: 0.45, map: flake, transparent: true, depthWrite: false, opacity: .95 }));
+      snow.frustumCulled = false; g.add(snow);
+
+      // Santa's sleigh with four reindeer
+      var sleigh = new THREE.Group(), red = new THREE.MeshLambertMaterial({ color: 0xc8202f }), goldM = new THREE.MeshLambertMaterial({ color: 0xe8b830 });
+      var body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.0, 1.4), red); body.position.y = 0.9; sleigh.add(body);
+      var back = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, 1.4), red); back.position.set(-1.0, 1.7, 0); sleigh.add(back);
+      [-0.62, 0.62].forEach(function (z) {
+        var run = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.08, 6, 20, Math.PI * 0.55), goldM); run.rotation.z = Math.PI * 1.23; run.position.set(0.2, 1.55, z); sleigh.add(run);
+        var rail = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.1, 0.1), goldM); rail.position.set(0.1, 0.12, z); sleigh.add(rail);
+      });
+      var santa = new THREE.Group();
+      var sb = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), red); sb.position.y = 1.75; santa.add(sb);
+      var face = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), new THREE.MeshLambertMaterial({ color: 0xf2c6a8 })); face.position.set(0.12, 2.45, 0); santa.add(face);
+      var beard = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: 0xffffff })); beard.position.set(0.28, 2.3, 0); santa.add(beard);
+      var hat = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.6, 10), red); hat.position.set(0.05, 2.85, 0); hat.rotation.z = 0.35; santa.add(hat);
+      var pom = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshLambertMaterial({ color: 0xffffff })); pom.position.set(-0.08, 3.12, 0); santa.add(pom);
+      santa.position.x = 0.1; sleigh.add(santa);
+      var sack = new THREE.Mesh(new THREE.SphereGeometry(0.62, 10, 8), new THREE.MeshLambertMaterial({ color: 0x8a5a2b })); sack.position.set(-0.6, 1.75, 0); sack.scale.set(1, 1.15, 1); sleigh.add(sack);
+      var deerM = new THREE.MeshLambertMaterial({ color: 0x7a4a2a }), antM = new THREE.MeshLambertMaterial({ color: 0xd9c3a0 });
+      var legs = [];
+      for (var r = 0; r < 4; r++) {
+        var deer = new THREE.Group(), row = Math.floor(r / 2), side = r % 2 ? 0.75 : -0.75;
+        var torso = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 0.55), deerM); torso.position.y = 1.2; deer.add(torso);
+        var neck = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 0.3), deerM); neck.position.set(0.65, 1.6, 0); neck.rotation.z = -0.5; deer.add(neck);
+        var head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.32, 0.32), deerM); head.position.set(0.95, 1.95, 0); deer.add(head);
+        [-0.12, 0.12].forEach(function (az) { var ant = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), antM); ant.position.set(0.85, 2.3, az); ant.rotation.z = 0.3; deer.add(ant); });
+        if (r === 3) { var nose = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2020 })); nose.position.set(1.25, 1.95, 0); deer.add(nose); }
+        [[0.5, .15], [0.5, -.15], [-0.5, .15], [-0.5, -.15]].forEach(function (lp, li) {
+          var leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 0.12), deerM); leg.position.set(lp[0], 0.6, lp[1]); deer.add(leg); legs.push({ m: leg, ph: r + li * 1.7 });
+        });
+        deer.position.set(3.6 + row * 2.3, 0, side); sleigh.add(deer);
+      }
+      var reins = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.9, 1.6, 0), new THREE.Vector3(3.3, 1.3, -0.75), new THREE.Vector3(0.9, 1.6, 0), new THREE.Vector3(3.3, 1.3, 0.75)]), new THREE.LineBasicMaterial({ color: 0xe8b830 }));
+      sleigh.add(reins);
+      sleigh.scale.setScalar(small ? 2.2 : 2.0); sleigh.visible = false; g.add(sleigh);
+      // a trail of sparkles behind the sleigh
+      var NT = 140, tp = new Float32Array(NT * 3), tc = new Float32Array(NT * 3), tAge = new Float32Array(NT).fill(9), tHead = 0;
+      var tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(tp, 3)); tg.setAttribute('color', new THREE.BufferAttribute(tc, 3));
+      var trail = new THREE.Points(tg, new THREE.PointsMaterial({ size: 0.9, map: flake, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      trail.frustumCulled = false; g.add(trail);
+      var ride = null, nextRide = 6;
+      return {
+        tick: function (dt, now, target) {
+          star.rotation.y = now * 1.2;
+          bulbs.forEach(function (b, i) { b.visible = reduced || Math.sin(now * 2.5 + i * 1.7) > -0.6; });
+          // snow follows the camera's view
+          snow.position.set(target.x, 0, target.z);
+          if (!reduced) {
+            for (var n = 0; n < NS; n++) {
+              var iy = n * 3 + 1; sp[iy] -= vel[n] * dt; sp[n * 3] += Math.sin(now * 0.8 + n) * 0.25 * dt;
+              if (sp[iy] < 0) { sp[iy] += HT; sp[n * 3] = (rnd() - .5) * BOX; sp[n * 3 + 2] = (rnd() - .5) * BOX; }
+            }
+            sg.attributes.position.needsUpdate = true;
+          }
+          // the sleigh: one pass across the sky every 25 to 35 seconds
+          if (!ride && now > nextRide) {
+            ride = { t: 0, dur: 14, x0: target.x - 110, x1: target.x + 110, z: target.z - 12 - rnd() * 10, y: TOP + 8 + rnd() * 5 };
+            sleigh.visible = true;
+          }
+          if (ride) {
+            ride.t += dt;
+            var k = ride.t / ride.dur, x = ride.x0 + (ride.x1 - ride.x0) * k;
+            sleigh.position.set(x, ride.y + Math.sin(ride.t * 1.6) * 2.2, ride.z);
+            sleigh.rotation.z = Math.cos(ride.t * 1.6) * 0.06;
+            legs.forEach(function (l) { l.m.rotation.z = Math.sin(now * 9 + l.ph) * 0.6; });
+            if (!reduced) for (var e = 0; e < 3; e++) {
+              var j = tHead; tHead = (tHead + 1) % NT; tAge[j] = 0;
+              tp[j * 3] = x - 2.5 + (rnd() - .5) * 1.5; tp[j * 3 + 1] = sleigh.position.y + 1 + (rnd() - .5) * 1.5; tp[j * 3 + 2] = ride.z + (rnd() - .5) * 1.5;
+            }
+            if (k >= 1) { ride = null; sleigh.visible = false; nextRide = now + 25 + rnd() * 10; }
+          }
+          for (var q = 0; q < NT; q++) {
+            tAge[q] += dt; var f = Math.max(0, 1 - tAge[q] / 2.2);
+            tc[q * 3] = f; tc[q * 3 + 1] = f * 0.85; tc[q * 3 + 2] = f * 0.45; tp[q * 3 + 1] -= dt * 0.8;
+          }
+          tg.attributes.position.needsUpdate = true; tg.attributes.color.needsUpdate = true;
+        }
+      };
+    })();
+
     /* camera */
     var controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI / 2 - 0.05; controls.minDistance = 4; controls.maxDistance = 520; controls.screenSpacePanning = false;
@@ -559,6 +698,7 @@
       if (fly) { fly.x += fly.speed * dt; if (fly.x > frontX + 8) fly.x = START + 1; camera.position.lerp(tmp.set(fly.x, TOP + 2.4, 5.5), 0.1); controls.target.lerp(tmp.set(fly.x + 14, TOP - 0.5, 0), 0.1); }
       pins.forEach(function (p, n) { p.position.y = TOP + 2 + (reduced ? 0 : Math.sin(now * 2.4 + n) * 0.3); p.rotation.y = now; });
       ring.material.opacity = reduced ? .9 : .55 + .4 * Math.sin(now * 3);
+      if (xmas) xmas.tick(dt, now, controls.target);
       sun.target.position.copy(controls.target); sun.position.copy(controls.target).addScaledVector(SUN_DIR, 140); sun.target.updateMatrixWorld();
       if (!fly) controls.update();
       renderer.render(scene, camera);
