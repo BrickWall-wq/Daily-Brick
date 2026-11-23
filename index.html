@@ -327,6 +327,8 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 .btn.no { background: var(--night3); color: var(--ink); box-shadow: none; }
 .soon-note { background: rgba(255,154,98,.12); border: 1px solid rgba(255,154,98,.45); border-radius: 12px; padding: 12px 14px; margin: 10px 0 14px; font-size: 14px; line-height: 1.45; }
 .btn.soon { opacity: .55; }
+.opt.legend { background: linear-gradient(135deg, rgba(169,232,255,.18), rgba(98,198,242,.08)); border-color: rgba(169,232,255,.55); }
+.opt.legend .price { color: #a9e8ff; }
 </style>
 </head>
 <body>
@@ -786,7 +788,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   }
   var XMAS = xmasSeason();
   if (XMAS) COLORS = COLORS.concat([{ n: 'Christmas red', c: '#c62f3b', x: 1 }, { n: 'Holly green', c: '#2e7d4f', x: 1 }, { n: 'Snow white', c: '#eef1f4', x: 1 }, { n: 'Gingerbread', c: '#a0623a', x: 1 }]);
-  var FIN_NAMES = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights', flag: 'Flag' };
+  var FIN_NAMES = { diamond: 'Diamond', gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights', flag: 'Flag' };
   var CORAL = '#ff9a62';
   var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   var COLS = 13, BW = 80, BH = 40, SHOW = 1000; // the flat wall loads the newest 1,000 bricks and scrolls
@@ -796,6 +798,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   var FINISHES = [{ id: 'plain', n: 'Plain', p: 0 }, { id: 'gold', n: 'Gold leaf', p: 19 }, { id: 'glaze', n: 'Glazed', p: 19 }, { id: 'carved', n: 'Carved pattern', p: 19 }];
   FINISHES = FINISHES.concat([{ id: 'flag', n: 'Your country\u2019s flag', p: 19 }]);
   if (XMAS) FINISHES = FINISHES.concat([{ id: 'snow', n: 'Snow-capped \u2744', p: 19 }, { id: 'candy', n: 'Candy cane \ud83c\udf6c', p: 19 }, { id: 'lights', n: 'Fairy lights \u2728', p: 19 }]);
+  FINISHES = FINISHES.concat([{ id: 'diamond', n: 'Diamond \ud83d\udc8e', p: 0, legend: true }]);
   var PRICE_INS = 0, PRICE_PHOTO = 19;
 
   function $(id) { return document.getElementById(id); }
@@ -832,10 +835,11 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     var missed = daysSince(profile.last_brick_date) - 1;
     return missed >= 1 && missed <= 3 && (profile.freezes || 0) >= missed && profile.current_streak > 0 ? missed : 0;
   }
-  var REWARD = { glaze: 'credit_glaze', gold: 'credit_gold', carved: 'credit_carved' };
+  var REWARD = { glaze: 'credit_glaze', gold: 'credit_gold', carved: 'credit_carved', diamond: 'credit_diamond' };
   function creditFor(fid) { return profile && REWARD[fid] ? (profile[REWARD[fid]] || 0) : 0; }
   function supporterActive() { return !!(profile && profile.supporter_until && new Date(profile.supporter_until) > new Date()); }
-  function rewardFinish() { return sel.f !== 'plain' && (supporterActive() || creditFor(sel.f) > 0); }
+  function rewardFinish() { return sel.f !== 'plain' && (creditFor(sel.f) > 0 || (sel.f !== 'diamond' && supporterActive())); }
+  function diamondLocked() { return sel.f === 'diamond' && creditFor('diamond') < 1; }
   function badgeFor(n) { return n >= 365 ? 'Year builder' : n >= 100 ? 'Centurion' : n >= 30 ? 'Month builder' : n >= 7 ? 'Week builder' : ''; }
   var todayCount = 0;
   function bizActive() { return !!(profile && profile.business_until && new Date(profile.business_until) > new Date()); }
@@ -960,8 +964,66 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     ctx.fillStyle = g; ctx.fillRect(x, y, w, h); ctx.restore();
     return true;
   }
+  // the legendary Diamond brick: cut facets with light and shade (a 3D look), a moving shine and twinkling sparkles
+  var diamondT = 0;
+  function star(ctx, sx, sy, r, a) {
+    if (a <= 0.02) return;
+    ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#ffffff'; ctx.beginPath();
+    ctx.moveTo(sx, sy - r); ctx.quadraticCurveTo(sx, sy, sx + r * .9, sy); ctx.quadraticCurveTo(sx, sy, sx, sy + r); ctx.quadraticCurveTo(sx, sy, sx - r * .9, sy); ctx.quadraticCurveTo(sx, sy, sx, sy - r); ctx.fill();
+    ctx.globalAlpha = a * .5; ctx.beginPath(); ctx.arc(sx, sy, r * .32, 0, 7); ctx.fill(); ctx.restore();
+  }
+  function paintDiamond(ctx, x, y, w, h, t) {
+    t = t || 0;
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    var g = ctx.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, '#f2fdff'); g.addColorStop(.35, '#a9e8ff'); g.addColorStop(.65, '#62c6f2'); g.addColorStop(1, '#d4f5ff');
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+    var ix = w * .2, iy = h * .24, x0 = x + ix, y0 = y + iy, x1 = x + w - ix, y1 = y + h - iy, mx = x + w / 2, my = y + h / 2;
+    function poly(pts, fill) { ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (var k = 2; k < pts.length; k += 2) ctx.lineTo(pts[k], pts[k + 1]); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); }
+    poly([x, y, x + w, y, x1, y0, x0, y0], 'rgba(255,255,255,.55)');
+    poly([x, y, x0, y0, x0, y1, x, y + h], 'rgba(255,255,255,.28)');
+    poly([x + w, y, x + w, y + h, x1, y1, x1, y0], 'rgba(10,60,110,.28)');
+    poly([x, y + h, x0, y1, x1, y1, x + w, y + h], 'rgba(10,50,100,.42)');
+    poly([x0, y0, mx, y, x1, y0], 'rgba(255,255,255,.3)');
+    poly([x0, y1, mx, y + h, x1, y1], 'rgba(0,40,90,.25)');
+    poly([x0, y0, x, my, x0, y1], 'rgba(255,255,255,.18)');
+    poly([x1, y0, x + w, my, x1, y1], 'rgba(0,40,90,.18)');
+    poly([x0, y0, x1, y0, mx, my], 'rgba(255,255,255,.42)');
+    poly([x0, y0, mx, my, x0, y1], 'rgba(255,255,255,.2)');
+    poly([x1, y0, x1, y1, mx, my], 'rgba(120,200,240,.25)');
+    poly([x0, y1, mx, my, x1, y1], 'rgba(40,120,190,.25)');
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = Math.max(1, h * .025);
+    ctx.beginPath();
+    ctx.moveTo(x, y); ctx.lineTo(x0, y0); ctx.moveTo(x + w, y); ctx.lineTo(x1, y0); ctx.moveTo(x, y + h); ctx.lineTo(x0, y1); ctx.moveTo(x + w, y + h); ctx.lineTo(x1, y1);
+    ctx.rect(x0, y0, x1 - x0, y1 - y0); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.moveTo(x1, y0); ctx.lineTo(x0, y1);
+    ctx.moveTo(x0, y0); ctx.lineTo(mx, y); ctx.lineTo(x1, y0); ctx.moveTo(x0, y1); ctx.lineTo(mx, y + h); ctx.lineTo(x1, y1);
+    ctx.stroke();
+    var sw = ((t * .35) % 1.6) - .3, sx = x + sw * w;
+    var sg = ctx.createLinearGradient(sx - w * .18, y, sx + w * .18, y + h);
+    sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(.5, 'rgba(255,255,255,.55)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sg; ctx.fillRect(x, y, w, h);
+    var rg = ctx.createLinearGradient(x, y, x + w, y);
+    ['rgba(255,120,160,.35)', 'rgba(255,220,120,.35)', 'rgba(140,255,190,.35)', 'rgba(120,190,255,.35)', 'rgba(200,140,255,.35)'].forEach(function (c, k) { rg.addColorStop(k / 4, c); });
+    ctx.fillStyle = rg; ctx.fillRect(x, y, w, Math.max(2, h * .07));
+    ctx.restore();
+    var r = h * .22;
+    star(ctx, x + w * .18, y + h * .3, r, .5 + .5 * Math.sin(t * 3.1));
+    star(ctx, x + w * .78, y + h * .22, r * .8, .5 + .5 * Math.sin(t * 2.3 + 2));
+    star(ctx, x + w * .62, y + h * .74, r * .7, .5 + .5 * Math.sin(t * 2.7 + 4));
+  }
+  window.__dbPaintDiamond = paintDiamond;
   function drawBrick(ctx, x, y, w, h, color, mine, finish, ins, photo, cc) {
     ctx.fillStyle = finish === 'gold' ? '#d9a93b' : color; ctx.fillRect(x, y, w, h);
+    if (finish === 'diamond') {
+      paintDiamond(ctx, x, y, w, h, diamondT);
+      if (ins) {
+        ctx.font = '700 ' + Math.round(h * .38) + 'px Figtree, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, h * .1); ctx.strokeStyle = 'rgba(10,50,90,.75)'; ctx.strokeText(ins, x + w / 2, y + h / 2, w - 6);
+        ctx.fillStyle = '#ffffff'; ctx.fillText(ins, x + w / 2, y + h / 2, w - 6);
+      }
+      if (mine) { ctx.strokeStyle = CORAL; ctx.lineWidth = 5; ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5); }
+      return;
+    }
     if (photo) {
       var im = imgFor(photo);
       if (im.complete && im.naturalWidth) {
@@ -1090,6 +1152,25 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   $('wallscroll').addEventListener('scroll', function () { wallScrolled(); if (!$('tip').hidden) $('tip').hidden = true; }, { passive: true });
   $('walltop').addEventListener('click', function () { focusNewest(true); });
   window.addEventListener('resize', wallScrolled);
+  // make Diamond bricks shine: redraw only those bricks, about 12 times a second, while they're on screen
+  (function () {
+    if (reduced) return;
+    setInterval(function () {
+      if (document.hidden) return;
+      diamondT += 0.08;
+      var cv = $('wall');
+      if (cv && cv.offsetParent) {
+        var ctx = cv.getContext('2d');
+        hit.forEach(function (q) {
+          if (q.b.finish !== 'diamond') return;
+          ctx.fillStyle = '#071820'; ctx.fillRect(q.x - 2, q.y - 2, q.w + 4, q.h + 4);
+          drawBrick(ctx, q.x, q.y, q.w, q.h, q.b.color, q.mine, 'diamond', q.b.message, null, null);
+          if ((q.b.profiles || {}).longest_streak >= 365) { ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 3; ctx.strokeRect(q.x + 1.5, q.y + 1.5, q.w - 3, q.h - 3); }
+        });
+      }
+      if (sel.f === 'diamond' && $('prev') && $('prev').offsetParent) drawPreview();
+    }, 80);
+  })();
   $('wall').addEventListener('click', function (e) {
     if (dragged) { dragged = false; return; }
     var cv = e.currentTarget, r = cv.getBoundingClientRect(), px = (e.clientX - r.left) * (cv.width / r.width), py = (e.clientY - r.top) * (cv.height / r.height);
@@ -1104,6 +1185,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     if (pr.supporter_until && new Date(pr.supporter_until) > new Date()) s.textContent += ' \u00b7 Supporter';
     if (bdg) s.textContent += ' \u00b7 ' + bdg;
     if (h.b.gift) s.textContent += ' · 🎁 gift brick';
+    if (h.b.finish === 'diamond') s.textContent += ' \u00b7 \ud83d\udc8e Legendary Diamond';
     var msb = milestoneOf(h.b.id); if (msb) s.textContent += ' · 🏆 Brick #' + fmt(msb.n);
     var tcc = h.b.country || pr.country;
     if (validCC(tcc)) { s.insertAdjacentHTML('afterbegin', flagTag(tcc)); s.title = countryName(tcc); }
@@ -1138,7 +1220,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 
   /* ---- stats and milestones ---- */
   var MILES = [['The first 10 km', 10], ['Johannesburg to Pretoria and back', 112], ['Hadrian’s Wall length', 117], ['Berlin Wall length', 155], ['Cape Town to Durban by road', 1640], ['The real Great Wall', WALL_KM]];
-  var STREAKS = [[7, 'A week of bricks', 'a free Glazed brick'], [30, 'A month on the wall', 'a free Gold brick and a streak freeze'], [100, 'One hundred days', 'a free Carved brick and the Centurion badge'], [365, 'A year of bricks', 'a golden outline on all your bricks']];
+  var STREAKS = [[7, 'A week of bricks', 'a free Glazed brick'], [30, 'A month on the wall', 'a free Gold brick and a streak freeze'], [50, 'Fifty days strong', 'a legendary Diamond brick (and another every 50 days)'], [100, 'One hundred days', 'a free Carved brick and the Centurion badge'], [365, 'A year of bricks', 'a golden outline on all your bricks']];
   var COUNTS = [[1000, 'First 1,000 bricks', 'The wall is alive'], [100000, '100,000 bricks', 'About 92 m of wall'], [1e6, 'Section 1 complete', 'About 0.9 km of wall and the first tower'], [1e9, '1 billion bricks', 'About 921 km of wall'], [23e9, '23 billion bricks', 'The length of the Great Wall. Then we keep going.']];
   function stats() {
     var total = wallTotal, p = total / TARGET, km = p * WALL_KM;
@@ -1179,10 +1261,13 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     var done = placedToday(), btn = $('placeBtn'), cost = total(), biz = bizActive(), left = dailyLimit() - todayCount;
     var upgrade = biz ? todayCount > 0 : done;
     var rw = rewardFinish();
-    btn.disabled = busy || (done && !cost && !rw) || (!!cost && !PAYMENTS_ON);
+    var locked = diamondLocked();
+    btn.disabled = busy || (done && !cost && !rw) || (!!cost && !PAYMENTS_ON) || locked;
     if (busy) btn.textContent = 'Please wait…';
+    else if (locked) btn.textContent = '\ud83d\udc8e Earn the Diamond with a 50-day streak';
     else if (cost && !PAYMENTS_ON) btn.textContent = 'Paid extras coming soon';
     else if (cost) btn.textContent = upgrade ? 'Pay R' + cost + (biz ? ' to upgrade your latest brick' : ' to upgrade today\'s brick') : 'Pay R' + cost + ' and place brick';
+    else if (rw && sel.f === 'diamond') btn.textContent = upgrade ? '\ud83d\udc8e Make today\'s brick a Diamond' : '\ud83d\udc8e Place your Diamond brick';
     else if (rw) btn.textContent = supporterActive() ? (upgrade ? 'Add your supporter finish to today\'s brick' : 'Place brick with your supporter finish') : (upgrade ? 'Use your free reward on today\'s brick' : 'Place brick with your free reward');
     else if (done) btn.textContent = 'Come back tomorrow';
     else btn.textContent = biz ? 'Place brick ' + (todayCount + 1) + ' of 10' : 'Place today\'s brick';
@@ -1203,7 +1288,8 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     fiBox.querySelectorAll('.opt').forEach(function (b) {
       var fid = b.getAttribute('data-fid'), c = creditFor(fid), p = FINISHES.filter(function (x) { return x.id === fid; })[0].p;
       var sup = p && supporterActive();
-      b.children[1].textContent = sup ? 'Included' : c > 0 ? 'Free reward (' + c + ')' : p ? '+R' + p : 'Free';
+      var legend = fid === 'diamond';
+      b.children[1].textContent = legend ? (c > 0 ? 'Yours (' + c + ')' : 'Legendary \u00b7 50-day streak') : sup ? 'Included' : c > 0 ? 'Free reward (' + c + ')' : p ? '+R' + p : 'Free';
       b.classList.toggle('has', (sup || c > 0) && b.getAttribute('aria-pressed') !== 'true');
     });
     if (!profile) return;
@@ -1211,6 +1297,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     if (profile.credit_glaze) have.push(profile.credit_glaze + ' free Glazed');
     if (profile.credit_gold) have.push(profile.credit_gold + ' free Gold leaf');
     if (profile.credit_carved) have.push(profile.credit_carved + ' free Carved');
+    if (profile.credit_diamond) have.push(profile.credit_diamond + ' legendary Diamond');
     var st = liveStreak(), next = STREAKS.filter(function (m) { return m[0] > st; })[0];
     $('rewardsText').textContent = (have.length ? 'Ready to use on the Place screen: ' + have.join(', ') + '. ' : '') +
       (next ? 'Next: ' + next[2] + ' at a ' + next[0] + '-day streak (' + (next[0] - st) + ' to go).' : 'You have reached every streak reward. Legend.');
@@ -1259,7 +1346,9 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
     b.innerHTML = '<span></span><span class="price"></span>'; b.children[0].textContent = f.n; b.children[1].textContent = f.p ? '+R' + f.p : 'Free'; b.setAttribute('data-fid', f.id);
     b.setAttribute('aria-pressed', String(f.id === sel.f));
+    if (f.legend) b.classList.add('legend');
     b.addEventListener('click', function () {
+      if (f.legend && creditFor('diamond') < 1) { var st = liveStreak(), to = 50 - (st % 50); toast('\ud83d\udc8e The Diamond brick is legendary: you can\u2019t buy it. Reach a 50-day streak to earn one' + (user ? ' (' + to + ' days to go).' : '.')); }
       if (f.id === 'flag' && !(profile && validCC(profile.country))) { toast(user ? 'Choose your country on the Me tab first, then pick the flag brick.' : 'Sign up and choose your country to get a flag brick.'); return; }
       sel.f = f.id; fiBox.querySelectorAll('.opt').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); drawPreview(); render();
     });
@@ -1522,6 +1611,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     sel.f = 'plain';
     fiBox.querySelectorAll('.opt').forEach(function (x, i) { x.setAttribute('aria-pressed', String(i === 0)); });
     if (paidAfter) { await loadProfile(); toast('Free ' + name + ' finish added. Now pay for the rest.'); payForExtras(); return; }
+    if (fin === 'diamond') { celebrate('\ud83d\udc8e Your legendary Diamond brick is on the wall!'); return; }
     celebrate(supporterActive() ? name + ' brick placed. Thanks for being a supporter!' : 'Free ' + name + ' brick placed. Enjoy your reward!');
   }
   $('buyFreeze').addEventListener('click', async function () {
@@ -1530,6 +1620,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   });
   $('placeBtn').addEventListener('click', async function () {
     if (!user || busy) return;
+    if (diamondLocked()) return;
     if (rewardFinish()) { useReward(); return; }
     if (total()) { payForExtras(); return; }
     if (placedToday()) return;
@@ -2180,7 +2271,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   var w3dScript = null;
   function load3d() {
     if (window.DailyBrick3D) return Promise.resolve();
-    if (!w3dScript) w3dScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/wall3d.js?v=5'; s.onload = res; s.onerror = function () { w3dScript = null; rej(new Error('load')); }; document.head.appendChild(s); });
+    if (!w3dScript) w3dScript = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/wall3d.js?v=6'; s.onload = res; s.onerror = function () { w3dScript = null; rej(new Error('load')); }; document.head.appendChild(s); });
     return w3dScript;
   }
   function open3d() {

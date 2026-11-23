@@ -271,7 +271,7 @@
     L.bricks.forEach(function (s, i) {
       var j = ((s.b.id * 9301 + 49297) % 233280) / 233280;
       dummy.position.set(s.x, s.y, 0); dummy.rotation.set(0, (j - .5) * 0.014, 0); dummy.updateMatrix(); bricks.setMatrixAt(i, dummy.matrix);
-      col.set(s.b.finish === 'gold' ? '#d9a93b' : (s.b.color || '#c9a27e')).multiplyScalar(0.9 + j * 0.18); bricks.setColorAt(i, col); tints[i] = '#' + col.getHexString();
+      col.set(s.b.finish === 'gold' ? '#d9a93b' : s.b.finish === 'diamond' ? '#bfeeff' : (s.b.color || '#c9a27e')).multiplyScalar(0.9 + j * 0.18); bricks.setColorAt(i, col); tints[i] = '#' + col.getHexString();
       if (me && s.b.user_id === me) mine.push(i);
     });
     if (!L.bricks.length) bricks.count = 0;
@@ -437,9 +437,10 @@
     var faceMats = [];
     (function () {
       var withPhoto = [], withText = [];
-      var FEST = { snow: 1, candy: 1, lights: 1, flag: 1 };
-      L.bricks.forEach(function (s, i) { if (photoOf(s.b)) withPhoto.push(i); else if (s.b.message || FEST[s.b.finish]) withText.push(i); });
-      var pick = withPhoto.slice(-Math.round(MAX_FACES / 2));
+      var FEST = { snow: 1, candy: 1, lights: 1, flag: 1 }, withDiamond = [];
+      L.bricks.forEach(function (s, i) { if (s.b.finish === 'diamond') withDiamond.push(i); else if (photoOf(s.b)) withPhoto.push(i); else if (s.b.message || FEST[s.b.finish]) withText.push(i); });
+      var pick = withDiamond.slice(-Math.round(MAX_FACES / 4));
+      pick = pick.concat(withPhoto.slice(-Math.round(MAX_FACES / 2)));
       pick = pick.concat(withText.slice(-(MAX_FACES - pick.length))).sort(function (a, b) { return a - b; });
       if (!pick.length) return;
       var A = 2048, CW = 192, CH = 84, COLS = Math.floor(A / CW), PER = COLS * Math.floor(A / CH);
@@ -451,6 +452,7 @@
         if (img) { var k = Math.max(CW / img.width, CH / img.height), iw = img.width * k, ih = img.height * k; g.drawImage(img, cx + (CW - iw) / 2, cy + (CH - ih) / 2, iw, ih); }
         paintFestive(g, cx, cy, CW, CH, b.finish, b.color);
         if (b.finish === 'flag' && flag) { var fk = Math.max(CW / 640, CH / 480); g.drawImage(flag, cx + (CW - 640 * fk) / 2, cy + (CH - 480 * fk) / 2, 640 * fk, 480 * fk); }
+        if (b.finish === 'diamond' && window.__dbPaintDiamond) window.__dbPaintDiamond(g, cx, cy, CW, CH, 0);
         if (gold) { var gr = g.createLinearGradient(cx, cy, cx + CW, cy + CH); gr.addColorStop(0, 'rgba(255,245,200,.5)'); gr.addColorStop(.5, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(255,240,180,.3)'); g.fillStyle = gr; g.fillRect(cx, cy, CW, CH); }
         g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(cx, cy + CH - 5, CW, 5);
         if (b.message) {
@@ -499,6 +501,29 @@
     })();
 
     state.faceMats = faceMats;
+
+    /* legendary Diamond bricks: sparkles that twinkle on both faces */
+    var sparkMats = [];
+    (function () {
+      var list = L.bricks.filter(function (s) { return s.b.finish === 'diamond'; }).slice(-150);
+      if (!list.length) return;
+      var c = document.createElement('canvas'); c.width = c.height = 64; var g = c.getContext('2d');
+      var rg = g.createRadialGradient(32, 32, 0, 32, 32, 30); rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(.25, 'rgba(200,240,255,.6)'); rg.addColorStop(1, 'rgba(200,240,255,0)');
+      g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+      g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(32, 2); g.quadraticCurveTo(32, 32, 62, 32); g.quadraticCurveTo(32, 32, 32, 62); g.quadraticCurveTo(32, 32, 2, 32); g.quadraticCurveTo(32, 32, 32, 2); g.fill();
+      var tex = new THREE.CanvasTexture(c);
+      for (var m = 0; m < 4; m++) sparkMats.push(new THREE.SpriteMaterial({ map: tex, color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .8 }));
+      var spots = [[-.32, .1], [.3, .14], [.12, -.1]];
+      list.forEach(function (s, n) {
+        [1, -1].forEach(function (side) {
+          spots.forEach(function (sp, k) {
+            var sprite = new THREE.Sprite(sparkMats[(n + k + (side > 0 ? 0 : 2)) % 4]);
+            sprite.position.set(s.x + sp[0] * BL * side, s.y + sp[1] * BH, side * (BD / 2 + 0.03));
+            sprite.scale.set(0.22, 0.22, 1); scene.add(sprite);
+          });
+        });
+      });
+    })();
 
     /* your bricks: outline + pin (the latest 12) */
     var pinGeo = new THREE.ConeGeometry(0.3, 0.9, 16), pinMat = new THREE.MeshBasicMaterial({ color: 0xff9a62 });
@@ -679,7 +704,7 @@
       if (!hit) { tip.hidden = true; return; }
       if (hit.object.userData.emb) { var e = hit.object.userData.emb; showTip('<strong>' + esc(e.name) + '</strong> (business) · ' + e.count + ' bricks on ' + esc(e.day) + (e.site ? '<br>' + siteLink(e) : '') + socialLinks(e.prof), e.site || socialLinks(e.prof) ? 9000 : 5000); return; }
       var s = L.bricks[hit.instanceId]; if (!s) return;
-      var ph = photoOf(s.b), p = data.profiles[s.b.user_id] || {}, fin = { gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights', flag: 'Flag' }[s.b.finish];
+      var ph = photoOf(s.b), p = data.profiles[s.b.user_id] || {}, fin = { diamond: '\ud83d\udc8e Legendary Diamond', gold: 'Gold leaf', glaze: 'Glazed', carved: 'Carved', snow: 'Snow-capped', candy: 'Candy cane', lights: 'Fairy lights', flag: 'Flag' }[s.b.finish];
       var tcc = s.b.country || p.country;
       showTip((/^[A-Z]{2}$/.test(tcc || '') && window.__dbFlagUrl ? '<img src="' + esc(window.__dbFlagUrl(tcc)) + '" alt="" width="20" height="15" style="vertical-align:-2px;margin-right:6px;border-radius:2px">' : '') + '<strong>' + (me && s.b.user_id === me ? 'Your brick' : esc(p.display_name || 'A builder')) + '</strong>' + (fin ? ' · ' + fin : '') + (s.b.message ? ' · “' + esc(s.b.message) + '”' : '') + ' · placed ' + esc(s.b.placed_on)
         + (ph ? (s.b.photo_status === 'pending' ? ' · photo waiting for approval' : '') + '<img src="' + esc(ph) + '" alt="Photo on this brick" style="display:block;width:100%;max-height:38vh;object-fit:cover;border-radius:8px;margin-top:8px">' : '')
@@ -698,6 +723,7 @@
       if (fly) { fly.x += fly.speed * dt; if (fly.x > frontX + 8) fly.x = START + 1; camera.position.lerp(tmp.set(fly.x, TOP + 2.4, 5.5), 0.1); controls.target.lerp(tmp.set(fly.x + 14, TOP - 0.5, 0), 0.1); }
       pins.forEach(function (p, n) { p.position.y = TOP + 2 + (reduced ? 0 : Math.sin(now * 2.4 + n) * 0.3); p.rotation.y = now; });
       ring.material.opacity = reduced ? .9 : .55 + .4 * Math.sin(now * 3);
+      sparkMats.forEach(function (m, k) { var a = reduced ? .7 : Math.max(0, Math.sin(now * (2.2 + k * .4) + k * 1.7)); m.opacity = a; m.rotation = now * .6 + k; });
       if (xmas) xmas.tick(dt, now, controls.target);
       sun.target.position.copy(controls.target); sun.position.copy(controls.target).addScaledVector(SUN_DIR, 140); sun.target.updateMatrixWorld();
       if (!fly) controls.update();
