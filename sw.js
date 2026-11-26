@@ -1,6 +1,6 @@
 // Daily Brick service worker: makes the app installable, lets it open without a connection,
 // and shows the daily brick reminders. Live data (bricks, accounts) always comes fresh from the internet.
-const CACHE = 'daily-brick-v4';
+const CACHE = 'daily-brick-v5';
 const SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {

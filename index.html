@@ -629,7 +629,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
       </div>
       <div class="rewards" id="inviteBox">
         <div class="row"><h3>Invite friends</h3><span class="tag" id="inviteCount">0 joined</span></div>
-        <p class="note">When a friend joins with your link and places their first brick, you both get a free Glazed brick (for up to 10 friends).</p>
+        <p class="note">When a friend joins with your link and places their first brick, you both get a free Gold brick (for up to 20 friends).</p>
         <div class="invite-link" id="inviteLink"></div>
         <div class="acts2">
           <button class="btn" type="button" id="inviteShare">Share my link</button>
@@ -755,7 +755,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     <div class="sharesheet" id="shareSheet" role="dialog" aria-modal="true" aria-labelledby="ssTitle" hidden>
   <div class="ss-panel">
     <div class="row"><h3 id="ssTitle">Share Daily Brick</h3><button class="btn ghost" type="button" id="ssClose" style="width:auto;min-height:0">Close</button></div>
-    <p class="note">Pictures include your invite link. When friends join with it, you both get a free Glazed brick.</p>
+    <p class="note">Pictures include your invite link. When friends join with it, you both get a free Gold brick.</p>
     <div class="ss-grid">
       <button type="button" data-ss="post"><b>Picture for a post</b><span>Instagram, Facebook, TikTok</span></button>
       <button type="button" data-ss="story"><b>Picture for a story</b><span>Stories and WhatsApp Status</span></button>
@@ -1437,7 +1437,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     var st = liveStreak(), m = STREAKS.filter(function (x) { return x[0] === st; })[0];
     toast(m && !msg ? st + '-day streak! You earned ' + m[2] + '.' : (msg || 'Brick placed. See you tomorrow!'));
     $('shareTitle').textContent = m ? 'You reached a ' + st + '-day streak!' : st > 1 ? 'Day ' + st + ' of your streak' : 'Show off your brick';
-    $('shareText').textContent = 'Share a picture of your brick and invite friends to build with you. You both get a free Glazed brick when they join.';
+    $('shareText').textContent = 'Share a picture of your brick and invite friends to build with you. You both get a free Gold brick when they join.';
     $('shareCard').hidden = false;
   }
   async function fnError(err) {
@@ -2089,7 +2089,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     window.__invited = true;
   })();
   function inviteLink() { return location.origin + '/?ref=' + ((profile && profile.ref_code) || ''); }
-  function inviteText() { return 'Come build with me on Daily Brick! One free brick a day to build a wall longer than the Great Wall of China. Join with my link and we both get a free Glazed brick:'; }
+  function inviteText() { return 'Come build with me on Daily Brick! One free brick a day to build a wall longer than the Great Wall of China. Join with my link and we both get a free Gold brick:'; }
   async function copyText(s) {
     try { await navigator.clipboard.writeText(s); toast('Link copied. Paste it in WhatsApp or anywhere.'); }
     catch (e) { toast('Copy failed. Press and hold the link to copy it.'); }
@@ -2136,7 +2136,8 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     x.fillText('the Great Wall of China.', W / 2, 1162 + oy);
     x.fillStyle = '#ff9a62'; x.font = '600 34px "IBM Plex Mono", monospace';
     x.fillText(location.host + ((profile && profile.ref_code) ? '/?ref=' + profile.ref_code : ''), W / 2, 1250 + oy);
-    if (story) { x.fillStyle = '#8fb3b5'; x.font = '600 34px Figtree, system-ui, sans-serif'; x.fillText('One free brick a day. Join me!', W / 2, 1320 + oy); }
+    x.fillStyle = '#f6c440'; x.font = '700 36px Figtree, system-ui, sans-serif'; x.fillText('Join with my link: we both get a free Gold brick!', W / 2, 1310 + oy, W - 80);
+    if (story) { x.fillStyle = '#8fb3b5'; x.font = '600 34px Figtree, system-ui, sans-serif'; x.fillText('One free brick a day. Join me!', W / 2, 1380 + oy); }
     return await new Promise(function (res) { c.toBlob(res, 'image/png'); });
   }
   async function sharePicture(story) {
@@ -2633,7 +2634,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   sb.auth.getSession().then(function (r) {
     user = r.data.session ? r.data.session.user : null; loadProfile();
     payReturn();
-    if (window.__invited && !user) setTimeout(function () { toast('A friend invited you! Sign up and place your first brick to get a free Glazed brick.'); }, 800);
+    if (window.__invited && !user) setTimeout(function () { toast('A friend invited you! Sign up and place your first brick to get a free Gold brick.'); }, 800);
     if (location.hash === '#place') { show(user ? 'place' : 'me'); try { history.replaceState(null, '', location.pathname); } catch (e) {} }
   });
   renderRemind(false);
