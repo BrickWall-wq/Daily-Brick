@@ -336,6 +336,13 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 .pop-card h2 { margin: 4px 0 0; font: 800 24px/1.2 Cinzel, Georgia, serif; }
 .pop-card p { margin: 0; color: var(--muted); }
 .linkbtn { background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; padding: 6px; }
+/* welcome card for first-time visitors */
+.welcome { border-color: var(--coral); background: linear-gradient(160deg, #1d3c4a, var(--night2) 70%); gap: 10px; }
+.welcome h2 { margin: 0; font-size: 26px; line-height: 1.15; }
+.welcome p { margin: 0; }
+.welcome .btn { font-size: 18px; min-height: 56px; }
+.srcrow { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.srcrow b { text-transform: capitalize; }
 @keyframes popin { from { transform: translateY(16px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .pop-card { animation: none; } }
 .mod { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
@@ -368,6 +375,14 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
 
   <!-- WALL -->
   <section id="tab-wall" class="view" aria-label="Wall">
+    <div class="card welcome" id="welcomeCard" hidden>
+      <span class="label">Free &middot; nothing to download</span>
+      <h2>Add your brick to a giant wall</h2>
+      <p>Pick a colour, write a word, and your brick stays on the wall for good. <strong id="wcCount">Hundreds of</strong> bricks so far.</p>
+      <p class="note" id="wcRace" hidden></p>
+      <button class="btn" type="button" id="wcPlace">Place my free brick</button>
+      <p class="note" style="text-align:center">Takes 30 seconds. Already building? <button type="button" class="linkbtn" id="wcLogin">Log in</button></p>
+    </div>
     <div class="hero">
       <svg viewBox="0 0 800 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
         <defs>
@@ -659,6 +674,11 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
         <div class="meta"><span>Today <strong id="oIncomeToday">R0</strong></span><span>7 days <strong id="oIncome7">R0</strong></span><span>All time <strong id="oIncomeAll">R0</strong></span></div>
         <div class="split" id="oSplit"></div>
         <p class="note" id="oTest"></p>
+      </div>
+      <div class="rewards" id="srcBox">
+        <div class="row"><h3>Where people come from</h3><span class="tag">30 days</span></div>
+        <div id="srcList"><p class="note">Loading…</p></div>
+        <p class="note">Share links ending in ?src=fb, ?src=ig, ?src=tt or ?src=wa to see which platform works.</p>
       </div>
       <button class="btn" type="button" id="makeReel">&#127916; Make today's reel</button>
       <div class="rewards" id="annBox">
@@ -1251,6 +1271,8 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   function stats() {
     var total = wallTotal, p = total / TARGET, km = p * WALL_KM;
     $('count').innerHTML = fmt(total) + ' <small>bricks laid</small>';
+    if (total) $('wcCount').textContent = fmt(total);
+    renderWelcome();
     $('pct').textContent = (p * 100).toFixed(6) + '%';
     $('barFill').style.width = Math.max(.8, p * 100) + '%';
     $('km').textContent = (km < 1 ? (km * 1000).toFixed(1) + ' m' : km.toFixed(1) + ' km');
@@ -1282,7 +1304,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   function render() {
     var st = liveStreak();
     $('streakChip').hidden = !user; $('streakN').textContent = st;
-    $('placeLogin').hidden = !!user; $('placePanel').hidden = !user;
+    $('placeLogin').hidden = true; $('placePanel').hidden = false;   // guests can design their brick first and sign up after
     $('authPanel').hidden = !!user; $('profilePanel').hidden = !user;
     var done = placedToday(), btn = $('placeBtn'), cost = total(), biz = bizActive(), left = dailyLimit() - todayCount;
     var upgrade = biz ? todayCount > 0 : done;
@@ -1296,7 +1318,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     else if (rw && sel.f === 'diamond') btn.textContent = upgrade ? '\ud83d\udc8e Make today\'s brick a Diamond' : '\ud83d\udc8e Place your Diamond brick';
     else if (rw) btn.textContent = supporterActive() ? (upgrade ? 'Add your supporter finish to today\'s brick' : 'Place brick with your supporter finish') : (upgrade ? 'Use your free reward on today\'s brick' : 'Place brick with your free reward');
     else if (done) btn.textContent = 'Come back tomorrow';
-    else btn.textContent = biz ? 'Place brick ' + (todayCount + 1) + ' of 10' : 'Place today\'s brick';
+    else btn.textContent = !user ? 'Place my brick' : biz ? 'Place brick ' + (todayCount + 1) + ' of 10' : 'Place today\'s brick';
     $('placeAll').hidden = !biz || busy || !!cost || rw || left < 2;
     $('placeAll').textContent = 'Place all ' + left + ' remaining bricks';
     $('placeTitle').textContent = biz ? (done ? 'All 10 business bricks placed' : 'Place your business bricks') : done ? 'Today\'s brick is placed' : 'Place today\'s brick';
@@ -1418,7 +1440,54 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
   }
   document.querySelectorAll('.tab').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
   document.querySelectorAll('[data-go]').forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-go')); }); });
-  $('heroPlace').addEventListener('click', function () { show(user ? 'place' : 'me'); });
+  $('heroPlace').addEventListener('click', function () { show('place'); });
+
+  /* ---- first-time visitors: try first, sign up after ---- */
+  function renderWelcome() {
+    $('welcomeCard').hidden = !!user;
+    var rt = $('raceTitle'), rl = $('raceLeft');
+    if (!$('raceCard').hidden && rt.textContent) { $('wcRace').textContent = '\ud83c\udfc6 ' + rt.textContent + (rl.textContent ? ' (' + rl.textContent + ')' : '') + ': the winner gets a prize.'; $('wcRace').hidden = false; }
+  }
+  $('wcPlace').addEventListener('click', function () { show('place'); });
+  $('wcLogin').addEventListener('click', function () { setMode('login'); show('me'); });
+  function pendingBrick() { try { return JSON.parse(localStorage.getItem('db_pending') || 'null'); } catch (e) { return null; } }
+  function guestPlace() {
+    lsSet('db_pending', JSON.stringify({ c: sel.c, m: $('inscr').value.trim() || null, at: Date.now() }));
+    if (total()) toast('Your brick is saved. Extras can be added after you sign up.');
+    setMode('signup'); show('me');
+    setTimeout(function () { $('authName').focus(); }, 80);
+  }
+  async function placePending() {
+    var pb = pendingBrick();
+    if (!pb || !user || !profile) return;
+    lsSet('db_pending', null);
+    if (Date.now() - (pb.at || 0) > 3 * 864e5 || placedToday()) return;
+    var r = await sb.rpc('place_brick', { p_color: pb.c, p_message: pb.m });
+    if (r.error) { toast(friendly(r.error.message)); return; }
+    show('wall'); celebrate('Your first brick is on the wall! Come back tomorrow for the next one.'); autoRemindAfterBrick();
+  }
+
+  /* ---- where visitors come from: ?src=fb / ig / tt / wa, or the app they opened the link in ---- */
+  function visitSource() {
+    var m = location.search.match(/[?&](?:src|utm_source)=([A-Za-z0-9_-]{1,24})/);
+    if (m) return m[1].toLowerCase();
+    var ua = navigator.userAgent || '', rf = document.referrer || '';
+    if (/Instagram/i.test(ua) || /instagram\./i.test(rf)) return 'instagram';
+    if (/FBAN|FBAV|FB_IAB/i.test(ua) || /facebook\.|fb\.com/i.test(rf)) return 'facebook';
+    if (/TikTok|musical_ly|BytedanceWebview/i.test(ua) || /tiktok\./i.test(rf)) return 'tiktok';
+    if (/WhatsApp/i.test(ua) || /whatsapp/i.test(rf)) return 'whatsapp';
+    if (/[?&]ref=/.test(location.search)) return 'invite';
+    if (/[?&]gift=/.test(location.search)) return 'gift';
+    if (/google\./i.test(rf)) return 'google';
+    return rf && rf.indexOf(location.host) < 0 ? 'other' : 'direct';
+  }
+  (function () {
+    var src = visitSource(), day = new Date().toISOString().slice(0, 10);
+    try {
+      if (!localStorage.getItem('db_src') || src !== 'direct') { if (!localStorage.getItem('db_src')) localStorage.setItem('db_src', src); }
+      if (localStorage.getItem('db_visit_day') !== day) { localStorage.setItem('db_visit_day', day); sb.rpc('log_visit', { p_src: src }).then(function () {}, function () {}); }
+    } catch (e) {}
+  })();
 
   function confetti() {
     if (reduced) return;
@@ -1707,7 +1776,8 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     await startPay({ action: 'freeze' }, { kind: 'freeze' });
   });
   $('placeBtn').addEventListener('click', async function () {
-    if (!user || busy) return;
+    if (busy) return;
+    if (!user) { guestPlace(); return; }
     if (diamondLocked()) return;
     if (rewardFinish()) { useReward(); return; }
     if (total()) { payForExtras(); return; }
@@ -1739,6 +1809,7 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     mode = m; var su = m === 'signup';
     $('authTitle').textContent = su ? 'Create your account' : 'Welcome back';
     $('authSub').textContent = su ? 'Free. Takes 30 seconds.' : 'Log in to place today\'s brick.';
+    if (su && pendingBrick()) { $('authTitle').textContent = 'Save your brick'; $('authSub').textContent = 'Your brick is ready! Create your free account and it goes straight onto the wall.'; $('authBtn').textContent = 'Sign up and place my brick'; }
     $('authName').hidden = !su; $('authBtn').textContent = su ? 'Sign up' : 'Log in';
     $('authPass').setAttribute('autocomplete', su ? 'new-password' : 'current-password');
     $('switchText').textContent = su ? 'Already have an account?' : 'New here?';
@@ -1807,7 +1878,9 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     user = session ? session.user : null;
     if ((user && user.id) !== was) {
       setTimeout(async function () {
-        await loadProfile(); drawWall();
+        await loadProfile(); drawWall(); renderWelcome();
+        if (user && profile && !profile.source) { try { sb.rpc('set_source', { p_src: localStorage.getItem('db_src') || 'direct' }).then(function () {}, function () {}); } catch (e) {} }
+        if (user && pendingBrick()) { await placePending(); return; }
         if (event === 'SIGNED_IN' && !$('tab-me').hidden) { show('place'); toast('Welcome' + (profile && profile.display_name ? ', ' + profile.display_name : '') + '!'); }
       }, 0);
     }
@@ -1824,6 +1897,17 @@ img.flag { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; 
     var r = await sb.rpc('owner_stats');
     if (r.error || !r.data) { $('oUpdated').textContent = friendly(r.error ? r.error.message : 'Could not load the numbers.'); return; }
     var s = r.data, inc = s.income || {};
+    sb.rpc('owner_sources').then(function (q) {
+      var box = $('srcList'); box.textContent = '';
+      var rows = (q && q.data) || [];
+      if (!rows.length) { box.innerHTML = '<p class="note">No visits recorded yet.</p>'; return; }
+      rows.forEach(function (x) {
+        var d = document.createElement('div'); d.className = 'srcrow';
+        var b = document.createElement('b'); b.textContent = x.src; var sp = document.createElement('span');
+        sp.textContent = fmt(x.visits) + ' visits \u2192 ' + plural(x.signups, 'sign-up');
+        d.appendChild(b); d.appendChild(sp); box.appendChild(d);
+      });
+    });
     $('oIncome30').textContent = rands(inc.d30);
     $('oIncomeToday').textContent = rands(inc.today); $('oIncome7').textContent = rands(inc.d7); $('oIncomeAll').textContent = rands(inc.all);
     var parts = [['Extras', inc.extras, 'var(--coral)'], ['Business', inc.business, 'var(--mint)'], ['Supporters', inc.supporter, '#b9a3ff'], ['Freezes', inc.freeze, '#d9a93b']];
